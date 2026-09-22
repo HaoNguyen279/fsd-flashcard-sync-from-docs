@@ -1,10 +1,15 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { Sparkles, RefreshCw, AlertCircle, BookOpen, Sun, Moon } from "lucide-react";
+import { Sparkles, RefreshCw, AlertCircle, BookOpen, Sun, Moon, GraduationCap } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { VocabularyItem, VocabApiResponse } from "@/lib/types";
 import { DaySelector } from "@/components/DaySelector";
 import { FlashcardDeck } from "@/components/FlashcardDeck";
+import { TestingSetup, TestConfig } from "@/components/TestingSetup";
+import { QuizView } from "@/components/QuizView";
+import { TestingPracticeView } from "@/components/TestingPracticeView";
+import { ChatBotDrawer } from "@/components/ChatBotDrawer";
 
 export default function Home() {
   const [items, setItems] = useState<VocabularyItem[]>([]);
@@ -12,6 +17,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+
+  const [viewMode, setViewMode] = useState<"main" | "setup" | "quiz" | "practice">("main");
+  const [testConfig, setTestConfig] = useState<TestConfig | null>(null);
+  const [testItems, setTestItems] = useState<VocabularyItem[]>([]);
+  const [activeItem, setActiveItem] = useState<VocabularyItem | null>(null);
 
   // Initialize theme: Default is light mode as requested
   useEffect(() => {
@@ -89,10 +99,31 @@ export default function Home() {
     return items.filter((item) => item.date === selectedDay);
   }, [items, selectedDay]);
 
+  // Testing feature handlers
+  const sampleRandomItems = (count: number) => {
+    const shuffled = [...items].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(count, items.length));
+  };
+
+  const handleStartTest = (config: TestConfig) => {
+    setTestConfig(config);
+    const sampled = sampleRandomItems(config.count);
+    setTestItems(sampled);
+    setViewMode(config.mode);
+  };
+
+  const handleRetryTest = () => {
+    // Retain the exact same set of words so user can re-test the exact same session
+  };
+
+  const handleBackToMain = () => {
+    setViewMode("main");
+  };
+
   return (
     <main className="min-h-screen bg-[#fafafa] dark:bg-[#09090b] text-neutral-900 dark:text-neutral-100 flex flex-col justify-between px-4 py-6 sm:py-10 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
       {/* Top Navigation Bar with Actions */}
-      <div className="w-full max-w-4xl mx-auto flex items-center justify-between mb-6 sm:mb-8">
+      <div className="w-full max-w-5xl mx-auto flex items-center justify-between mb-6 sm:mb-8">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 text-xs font-semibold text-neutral-600 dark:text-neutral-400">
           <Sparkles className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200" />
           <span>Synced with Google Docs</span>
@@ -100,17 +131,19 @@ export default function Home() {
 
         {/* Top-Right Action Buttons: Reload Data & Theme Toggle */}
         <div className="flex items-center gap-2">
-          {/* Reload Data Button */}
-          <button
-            onClick={fetchVocabulary}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white shadow-subtle hover:shadow transition-all active:scale-95 disabled:opacity-50 text-xs font-medium"
-            title="Reload data from Google Docs"
-            aria-label="Reload data"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Reload</span>
-          </button>
+          {/* Reload Data Button (only show when on main screen) */}
+          {viewMode === "main" && (
+            <button
+              onClick={fetchVocabulary}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white shadow-subtle hover:shadow transition-all active:scale-95 disabled:opacity-50 text-xs font-medium"
+              title="Reload data from Google Docs"
+              aria-label="Reload data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Reload</span>
+            </button>
+          )}
 
           {/* Theme Toggle Button */}
           <button
@@ -124,18 +157,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Header Titles */}
-      <header className="w-full max-w-4xl mx-auto flex flex-col items-center text-center mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 mb-2">
-          Daily English Flashcards
-        </h1>
-        <p className="text-sm sm:text-base text-neutral-500 dark:text-neutral-400 max-w-md">
-          Master daily vocabulary with active recall and pronunciation practice.
-        </p>
-      </header>
-
       {/* Main Content Area */}
-      <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col items-center justify-center">
+      <div className="w-full max-w-5xl mx-auto flex-1 flex flex-col items-center justify-center">
         {/* LOADING STATE */}
         {isLoading && (
           <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-6">
@@ -208,23 +231,87 @@ export default function Home() {
 
         {/* SUCCESSFUL DATA STATE */}
         {!isLoading && !error && items.length > 0 && (
-          <div className="w-full flex flex-col items-center">
-            {/* Day Selector */}
-            <DaySelector
-              days={days}
-              selectedDay={selectedDay}
-              onSelectDay={setSelectedDay}
-              dayCounts={dayCounts}
-            />
+          <div className="w-full">
+            <AnimatePresence mode="wait">
+              {viewMode === "main" && (
+                <motion.div
+                  key="main-view"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.25 }}
+                  className="w-full relative flex flex-col items-center justify-center"
+                >
+                  {/* Day Selector (Pinned to left on PC, top on mobile/tablet) */}
+                  <DaySelector
+                    days={days}
+                    selectedDay={selectedDay}
+                    onSelectDay={setSelectedDay}
+                    dayCounts={dayCounts}
+                  />
 
-            {/* Flashcard Deck */}
-            <FlashcardDeck items={filteredItems} selectedDate={selectedDay} />
+                  {/* Main Flashcard Deck and Testing Button (Centered exactly in the middle of the screen) */}
+                  <div className="w-full max-w-xl mx-auto flex flex-col items-center">
+                    <FlashcardDeck
+                      items={filteredItems}
+                      selectedDate={selectedDay}
+                      onActiveItemChange={setActiveItem}
+                    />
+
+                    {/* Bottom Action: Open All Vocabulary Test */}
+                    <div className="mt-8 sm:mt-10 flex flex-col items-center">
+                      <button
+                        onClick={() => setViewMode("setup")}
+                        className="group flex items-center gap-2.5 px-6 py-3 rounded-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-semibold text-sm shadow-subtle hover:shadow-card transition-all active:scale-95"
+                      >
+                        <GraduationCap className="w-5 h-5 text-amber-400 dark:text-amber-500" />
+                        <span>Kiểm tra từ vựng ({items.length} từ)</span>
+                      </button>
+                      <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
+                        Trắc nghiệm ngẫu nhiên & Luyện tập flashcard
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AI Chatbot Assistant Drawer on the right */}
+                  <ChatBotDrawer activeItem={activeItem} />
+                </motion.div>
+              )}
+
+              {viewMode === "setup" && (
+                <TestingSetup
+                  key="setup-view"
+                  totalCount={items.length}
+                  onStart={handleStartTest}
+                  onBack={handleBackToMain}
+                />
+              )}
+
+              {viewMode === "quiz" && (
+                <QuizView
+                  key="quiz-view"
+                  items={testItems}
+                  allItems={items}
+                  onBack={handleBackToMain}
+                  onRetry={handleRetryTest}
+                />
+              )}
+
+              {viewMode === "practice" && (
+                <TestingPracticeView
+                  key="practice-view"
+                  items={testItems}
+                  onBack={handleBackToMain}
+                  onRetry={handleRetryTest}
+                />
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <footer className="w-full max-w-4xl mx-auto text-center pt-8 text-xs text-neutral-400 dark:text-neutral-600">
+      <footer className="w-full max-w-5xl mx-auto text-center pt-8 text-xs text-neutral-400 dark:text-neutral-600">
         <p>Built with Next.js App Router • Google Docs API Sync</p>
       </footer>
     </main>

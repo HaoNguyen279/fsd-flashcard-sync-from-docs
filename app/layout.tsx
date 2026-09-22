@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "VocabSync • English Vocabulary Flashcards",
+  title: "DailyVocab",
   description: "Learn English vocabulary seamlessly with Google Docs synchronization.",
+  icons: {
+    icon: "/assets/furina_sticker.png",
+    shortcut: "/assets/furina_sticker.png",
+    apple: "/assets/furina_sticker.png",
+  },
 };
 
 export default function RootLayout({
