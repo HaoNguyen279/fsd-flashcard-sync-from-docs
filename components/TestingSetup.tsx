@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion } from "framer-motion";
+
 import { ArrowLeft, Play, Layers, HelpCircle, Sparkles } from "lucide-react";
 
 export type TestMode = "practice" | "quiz";
@@ -53,11 +53,7 @@ export const TestingSetup: React.FC<TestingSetupProps> = ({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+    <div
       className="w-full max-w-xl mx-auto flex flex-col gap-6"
     >
       {/* Top Header with Back button */}
@@ -232,6 +228,6 @@ export const TestingSetup: React.FC<TestingSetupProps> = ({
           <span>Bắt đầu kiểm tra ({selectedCount} từ)</span>
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };

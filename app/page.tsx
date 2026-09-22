@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Sparkles, RefreshCw, AlertCircle, BookOpen, Sun, Moon, GraduationCap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { VocabularyItem, VocabApiResponse } from "@/lib/types";
@@ -100,25 +100,41 @@ export default function Home() {
   }, [items, selectedDay]);
 
   // Testing feature handlers
-  const sampleRandomItems = (count: number) => {
-    const shuffled = [...items].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, Math.min(count, items.length));
-  };
+  const sampleRandomItems = useCallback(
+    (count: number) => {
+      const shuffled = [...items].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, Math.min(count, items.length));
+    },
+    [items]
+  );
 
-  const handleStartTest = (config: TestConfig) => {
-    setTestConfig(config);
-    const sampled = sampleRandomItems(config.count);
-    setTestItems(sampled);
-    setViewMode(config.mode);
-  };
+  const handleStartTest = useCallback(
+    (config: TestConfig) => {
+      // Sample items first, then set all states
+      const sampled = sampleRandomItems(config.count);
+      setTestConfig(config);
+      setTestItems(sampled);
+      // Defer viewMode change to the next frame so testItems state is committed before render
+      requestAnimationFrame(() => {
+        setViewMode(config.mode);
+      });
+    },
+    [sampleRandomItems]
+  );
 
-  const handleRetryTest = () => {
+  const handleRetryTest = useCallback(() => {
     // Retain the exact same set of words so user can re-test the exact same session
-  };
+  }, []);
 
-  const handleBackToMain = () => {
+  const handleBackToMain = useCallback(() => {
     setViewMode("main");
-  };
+  }, []);
+
+  // Shared transition for AnimatePresence children
+  const viewTransition = { duration: 0.2 };
+  const viewInitial = { opacity: 0, y: 15 };
+  const viewAnimate = { opacity: 1, y: 0 };
+  const viewExit = { opacity: 0, y: -15 };
 
   return (
     <main className="min-h-screen bg-[#fafafa] dark:bg-[#09090b] text-neutral-900 dark:text-neutral-100 flex flex-col justify-between px-4 py-6 sm:py-10 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
@@ -159,21 +175,45 @@ export default function Home() {
 
       {/* Main Content Area */}
       <div className="w-full max-w-5xl mx-auto flex-1 flex flex-col items-center justify-center">
-        {/* LOADING STATE */}
-        {isLoading && (
-          <div className="w-full max-w-lg mx-auto flex flex-col items-center gap-6">
-            <div className="h-2 w-full max-w-md bg-neutral-200 dark:bg-neutral-800 animate-pulse rounded-full" />
-            <div className="w-full h-[360px] sm:h-[400px] bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 shadow-subtle flex flex-col items-center justify-center p-8 animate-pulse">
-              <div className="w-24 h-4 bg-neutral-100 dark:bg-neutral-800 rounded-full mb-8" />
-              <div className="w-48 h-8 bg-neutral-200 dark:bg-neutral-800 rounded-xl mb-4" />
-              <div className="w-32 h-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg mb-8" />
-              <div className="w-40 h-4 bg-neutral-100 dark:bg-neutral-800 rounded-full mt-auto" />
-            </div>
-            <p className="text-xs text-neutral-400 dark:text-neutral-500 font-medium animate-pulse">
-              Syncing vocabulary from Google Docs...
-            </p>
-          </div>
-        )}
+        {/* LOADING STATE — Sleek Minimal Spinner */}
+        <AnimatePresence>
+          {isLoading && (
+            <motion.div
+              key="loading-indicator"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.25 }}
+              className="flex flex-col items-center justify-center gap-4 py-20"
+            >
+              <div className="relative w-10 h-10 flex items-center justify-center">
+                <svg
+                  className="w-10 h-10 animate-spin text-neutral-900 dark:text-neutral-100"
+                  viewBox="0 0 40 40"
+                  fill="none"
+                >
+                  <circle
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke="currentColor"
+                    strokeWidth="3.5"
+                    className="opacity-15"
+                  />
+                  <path
+                    d="M36 20C36 11.1634 28.8366 4 20 4"
+                    stroke="currentColor"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400 tracking-wide">
+                Loading docs data...
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ERROR STATE */}
         {!isLoading && error && (
@@ -217,7 +257,7 @@ export default function Home() {
               No Vocabulary Found
             </h3>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
-              No parent sections matching "dd/month" were found in the document.
+              No parent sections matching &quot;dd/month&quot; were found in the document.
             </p>
             <button
               onClick={fetchVocabulary}
@@ -232,14 +272,14 @@ export default function Home() {
         {/* SUCCESSFUL DATA STATE */}
         {!isLoading && !error && items.length > 0 && (
           <div className="w-full">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" initial={false}>
               {viewMode === "main" && (
                 <motion.div
                   key="main-view"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.25 }}
+                  initial={viewInitial}
+                  animate={viewAnimate}
+                  exit={viewExit}
+                  transition={viewTransition}
                   className="w-full relative flex flex-col items-center justify-center"
                 >
                   {/* Day Selector (Pinned to left on PC, top on mobile/tablet) */}
@@ -279,31 +319,52 @@ export default function Home() {
               )}
 
               {viewMode === "setup" && (
-                <TestingSetup
+                <motion.div
                   key="setup-view"
-                  totalCount={items.length}
-                  onStart={handleStartTest}
-                  onBack={handleBackToMain}
-                />
+                  initial={viewInitial}
+                  animate={viewAnimate}
+                  exit={viewExit}
+                  transition={viewTransition}
+                >
+                  <TestingSetup
+                    totalCount={items.length}
+                    onStart={handleStartTest}
+                    onBack={handleBackToMain}
+                  />
+                </motion.div>
               )}
 
-              {viewMode === "quiz" && (
-                <QuizView
+              {viewMode === "quiz" && testItems.length > 0 && (
+                <motion.div
                   key="quiz-view"
-                  items={testItems}
-                  allItems={items}
-                  onBack={handleBackToMain}
-                  onRetry={handleRetryTest}
-                />
+                  initial={viewInitial}
+                  animate={viewAnimate}
+                  exit={viewExit}
+                  transition={viewTransition}
+                >
+                  <QuizView
+                    items={testItems}
+                    allItems={items}
+                    onBack={handleBackToMain}
+                    onRetry={handleRetryTest}
+                  />
+                </motion.div>
               )}
 
-              {viewMode === "practice" && (
-                <TestingPracticeView
+              {viewMode === "practice" && testItems.length > 0 && (
+                <motion.div
                   key="practice-view"
-                  items={testItems}
-                  onBack={handleBackToMain}
-                  onRetry={handleRetryTest}
-                />
+                  initial={viewInitial}
+                  animate={viewAnimate}
+                  exit={viewExit}
+                  transition={viewTransition}
+                >
+                  <TestingPracticeView
+                    items={testItems}
+                    onBack={handleBackToMain}
+                    onRetry={handleRetryTest}
+                  />
+                </motion.div>
               )}
             </AnimatePresence>
           </div>
