@@ -81,7 +81,7 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ items, selectedDat
     setIsFlipped(false);
   };
 
-  // Keyboard navigation
+  // Keyboard navigation: A for previous, D for next, Space for flip
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if user is typing in an input
@@ -92,10 +92,10 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ items, selectedDat
         return;
       }
 
-      if (e.key === "ArrowRight") {
+      if (e.key === "d" || e.key === "D" || e.key === "ArrowRight") {
         e.preventDefault();
         handleNext();
-      } else if (e.key === "ArrowLeft") {
+      } else if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") {
         e.preventDefault();
         handlePrevious();
       } else if (e.code === "Space") {
@@ -111,7 +111,7 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ items, selectedDat
   if (deck.length === 0) {
     return (
       <div className="text-center py-16">
-        <p className="text-neutral-500 font-medium">No vocabulary items available for this date.</p>
+        <p className="text-neutral-500 dark:text-neutral-400 font-medium">No vocabulary items available for this date.</p>
       </div>
     );
   }
@@ -150,8 +150,8 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ items, selectedDat
           disabled={!hasPrevious}
           className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium border transition-all ${
             hasPrevious
-              ? "bg-white hover:bg-neutral-50 text-neutral-800 border-neutral-200 shadow-sm active:scale-95"
-              : "bg-neutral-50 text-neutral-300 border-neutral-100 cursor-not-allowed"
+              ? "bg-white hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-neutral-800 shadow-sm active:scale-95"
+              : "bg-neutral-50 dark:bg-neutral-900/40 text-neutral-300 dark:text-neutral-700 border-neutral-100 dark:border-neutral-900 cursor-not-allowed"
           }`}
           aria-label="Previous card"
         >
@@ -163,7 +163,7 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ items, selectedDat
         <div className="flex items-center gap-2">
           <button
             onClick={handleFlip}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-neutral-900 hover:bg-neutral-800 text-white shadow-sm transition-all active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 shadow-sm transition-all active:scale-95"
           >
             <RotateCw className="w-4 h-4" />
             <span>Flip</span>
@@ -171,7 +171,7 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ items, selectedDat
 
           <button
             onClick={handleShuffle}
-            className="p-2.5 rounded-full text-neutral-500 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200/80 transition-all active:scale-95"
+            className="p-2.5 rounded-full text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 bg-neutral-100 hover:bg-neutral-200/80 dark:bg-neutral-900 dark:hover:bg-neutral-800 border border-transparent dark:border-neutral-800 transition-all active:scale-95"
             title="Shuffle cards"
             aria-label="Shuffle cards"
           >
@@ -185,8 +185,8 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ items, selectedDat
           disabled={!hasNext}
           className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium border transition-all ${
             hasNext
-              ? "bg-white hover:bg-neutral-50 text-neutral-800 border-neutral-200 shadow-sm active:scale-95"
-              : "bg-neutral-50 text-neutral-300 border-neutral-100 cursor-not-allowed"
+              ? "bg-white hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-neutral-800 shadow-sm active:scale-95"
+              : "bg-neutral-50 dark:bg-neutral-900/40 text-neutral-300 dark:text-neutral-700 border-neutral-100 dark:border-neutral-900 cursor-not-allowed"
           }`}
           aria-label="Next card"
         >
@@ -196,22 +196,22 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ items, selectedDat
       </div>
 
       {/* Keyboard guide hint */}
-      <div className="hidden sm:flex items-center gap-4 text-xs text-neutral-400 mt-2">
+      <div className="hidden sm:flex items-center gap-4 text-xs text-neutral-400 dark:text-neutral-500 mt-2">
         <span>
-          <kbd className="px-1.5 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-600 font-mono">
-            ←
+          <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded text-neutral-700 dark:text-neutral-300 font-mono font-semibold">
+            A
           </kbd>{" "}
           Prev
         </span>
         <span>
-          <kbd className="px-1.5 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-600 font-mono">
+          <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded text-neutral-700 dark:text-neutral-300 font-mono font-semibold">
             Space
           </kbd>{" "}
           Flip
         </span>
         <span>
-          <kbd className="px-1.5 py-0.5 bg-neutral-100 border border-neutral-200 rounded text-neutral-600 font-mono">
-            →
+          <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded text-neutral-700 dark:text-neutral-300 font-mono font-semibold">
+            D
           </kbd>{" "}
           Next
         </span>
