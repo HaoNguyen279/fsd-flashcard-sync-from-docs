@@ -13,6 +13,8 @@ export const DATE_SECTION_REGEX = /^\d{1,2}\/\d{1,2}$/;
 
 /**
  * Extract clean plain text from a structural element (paragraph text runs).
+ * Returns the raw joined text WITHOUT trimming so that newlines within
+ * multi-paragraph cells are preserved at the cell-extraction level.
  */
 export function extractTextFromElement(element: GoogleDocsStructuralElement): string {
   if (!element.paragraph || !element.paragraph.elements) {
@@ -26,11 +28,16 @@ export function extractTextFromElement(element: GoogleDocsStructuralElement): st
     }
   }
 
-  return text.trim();
+  return text;
 }
 
 /**
  * Extract plain text from all elements inside a table cell.
+ * Handles multi-paragraph cells (cells where the user pressed Enter to add
+ * a new line in Docs). Each paragraph in the cell becomes a separate
+ * structural element in `cell.content`.
+ * We collect all non-empty paragraph texts and join them with a single space.
+ * The final result is trimmed to remove any leading/trailing whitespace or newlines.
  */
 export function extractTextFromCell(cell: GoogleDocsTableCell): string {
   if (!cell.content) {
@@ -39,12 +46,16 @@ export function extractTextFromCell(cell: GoogleDocsTableCell): string {
 
   const parts: string[] = [];
   for (const element of cell.content) {
-    const text = extractTextFromElement(element);
-    if (text) {
-      parts.push(text);
+    // Each element may be a paragraph (normal text) or a nested table – we only handle paragraphs here
+    const raw = extractTextFromElement(element);
+    // Strip trailing newline that Google Docs always appends to each paragraph
+    const cleaned = raw.replace(/\n$/, "").trim();
+    if (cleaned) {
+      parts.push(cleaned);
     }
   }
 
+  // Join multiple paragraphs within the same cell with a space so the meaning reads naturally
   return parts.join(" ").trim();
 }
 
@@ -90,16 +101,23 @@ function resolveColumnIndices(headerCells: string[]): {
 
 /**
  * Checks if a row is the header row.
+ * A header row must have ALL (or at least 2) cells matching known header keywords.
+ * This prevents content rows (e.g. "Từ đồng nghĩa: huge...") from being misidentified as headers.
  */
 function isHeaderRow(cells: string[]): boolean {
-  const combined = cells.join(" ").toLowerCase();
-  return (
-    combined.includes("từ vựng") ||
-    combined.includes("phát âm") ||
-    combined.includes("nghĩa") ||
-    combined.includes("vocabulary") ||
-    combined.includes("pronunciation")
-  );
+  const headerKeywords = ["từ vựng", "phát âm", "nghĩa", "vocabulary", "pronunciation", "word", "meaning"];
+  let matchCount = 0;
+  for (const cell of cells) {
+    const lower = cell.toLowerCase().trim();
+    // Only count as a header cell if the ENTIRE cell text is (or closely matches) a header keyword
+    // not just contains the keyword (to avoid "Từ đồng nghĩa" triggering on "nghĩa")
+    const isHeaderCell = headerKeywords.some(
+      (kw) => lower === kw || lower === kw + ":" || lower.startsWith(kw) && lower.length <= kw.length + 3
+    );
+    if (isHeaderCell) matchCount++;
+  }
+  // Require at least 2 cells to look like headers (e.g. "Từ vựng" + "Phát âm")
+  return matchCount >= 2;
 }
 
 /**

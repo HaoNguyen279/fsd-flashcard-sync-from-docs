@@ -12,6 +12,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { VocabularyItem } from "@/lib/types";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   id: string;
@@ -206,13 +207,74 @@ export const ChatBotDrawer: React.FC<ChatBotDrawerProps> = ({ activeItem }) => {
                   }`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed ${
+                    className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed ${
                       m.role === "user"
-                        ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 rounded-tr-none font-medium shadow-subtle"
-                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-tl-none border border-neutral-200/50 dark:border-neutral-700/60 whitespace-pre-wrap"
+                        ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 rounded-tr-none font-medium shadow-subtle whitespace-pre-wrap"
+                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-tl-none border border-neutral-200/50 dark:border-neutral-700/60"
                     }`}
                   >
-                    {m.content}
+                    {m.role === "user" ? (
+                      m.content
+                    ) : (
+                      <div className="space-y-1">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => (
+                              <p className="mb-2 last:mb-0 leading-relaxed">
+                                {children}
+                              </p>
+                            ),
+                            strong: ({ children }) => (
+                              <strong className="font-semibold text-neutral-900 dark:text-neutral-100">
+                                {children}
+                              </strong>
+                            ),
+                            em: ({ children }) => (
+                              <em className="italic text-neutral-800 dark:text-neutral-200">
+                                {children}
+                              </em>
+                            ),
+                            ul: ({ children }) => (
+                              <ul className="list-disc pl-4 space-y-1 my-1.5">
+                                {children}
+                              </ul>
+                            ),
+                            ol: ({ children }) => (
+                              <ol className="list-decimal pl-4 space-y-1 my-1.5">
+                                {children}
+                              </ol>
+                            ),
+                            li: ({ children }) => (
+                              <li className="leading-relaxed marker:text-neutral-400 dark:marker:text-neutral-500">
+                                {children}
+                              </li>
+                            ),
+                            code: ({ children }) => (
+                              <code className="bg-neutral-200/70 dark:bg-neutral-700/70 px-1 py-0.5 rounded text-[11px] font-mono text-neutral-800 dark:text-neutral-200">
+                                {children}
+                              </code>
+                            ),
+                            h1: ({ children }) => (
+                              <h1 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 mt-2 mb-1">
+                                {children}
+                              </h1>
+                            ),
+                            h2: ({ children }) => (
+                              <h2 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 mt-2 mb-1">
+                                {children}
+                              </h2>
+                            ),
+                            h3: ({ children }) => (
+                              <h3 className="text-xs font-bold text-neutral-900 dark:text-neutral-100 mt-1.5 mb-0.5">
+                                {children}
+                              </h3>
+                            ),
+                          }}
+                        >
+                          {m.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

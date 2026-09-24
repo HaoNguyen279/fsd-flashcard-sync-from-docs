@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Volume2,
+  VolumeX,
   CheckCircle2,
   XCircle,
   RotateCcw,
@@ -73,6 +74,23 @@ export const QuizView: React.FC<QuizViewProps> = ({
   >([]);
   const [isFinished, setIsFinished] = useState<boolean>(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const [autoPlayAudio, setAutoPlayAudio] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("quiz_auto_audio");
+      return saved !== "false";
+    }
+    return true;
+  });
+
+  const toggleAutoPlayAudio = useCallback(() => {
+    setAutoPlayAudio((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("quiz_auto_audio", String(next));
+      }
+      return next;
+    });
+  }, []);
 
   const currentQ = questions[currentIndex];
 
@@ -111,10 +129,12 @@ export const QuizView: React.FC<QuizViewProps> = ({
         },
       ]);
 
-      // Play audio for the correct word
-      playPronunciation(currentQ.targetItem.word);
+      // Play audio for the correct word if auto-play is enabled
+      if (autoPlayAudio) {
+        playPronunciation(currentQ.targetItem.word);
+      }
     },
-    [isAnswered, currentQ, playPronunciation]
+    [isAnswered, currentQ, autoPlayAudio, playPronunciation]
   );
 
   const handleNext = useCallback(() => {
@@ -278,9 +298,9 @@ export const QuizView: React.FC<QuizViewProps> = ({
       transition={{ duration: 0.25 }}
       className="w-full max-w-xl mx-auto flex flex-col gap-6"
     >
-      {/* Top Header: Back Button, Restart Button & Progress */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Top Header: Back Button, Restart Button, Auto Audio Toggle & Progress */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={onBack}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white text-xs font-medium transition-all active:scale-95 shadow-subtle"
@@ -296,9 +316,35 @@ export const QuizView: React.FC<QuizViewProps> = ({
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Làm lại</span>
           </button>
+          {/* Auto pronunciation toggle button */}
+          <button
+            onClick={toggleAutoPlayAudio}
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full border text-xs font-medium transition-all active:scale-95 shadow-subtle ${
+              autoPlayAudio
+                ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-neutral-900 dark:border-white"
+                : "bg-white dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800 hover:text-neutral-800 dark:hover:text-neutral-200"
+            }`}
+            title={
+              autoPlayAudio
+                ? "Tự động phát âm khi chọn đáp án: BẬT (click để tắt)"
+                : "Tự động phát âm khi chọn đáp án: TẮT (click để bật)"
+            }
+          >
+            {autoPlayAudio ? (
+              <Volume2 className="w-3.5 h-3.5" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5" />
+            )}
+            <span className="hidden sm:inline">
+              {autoPlayAudio ? "Tự phát âm: Bật" : "Tự phát âm: Tắt"}
+            </span>
+            <span className="sm:hidden">
+              {autoPlayAudio ? "Auto âm" : "Tắt âm"}
+            </span>
+          </button>
         </div>
 
-        <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+        <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
           Câu hỏi {currentIndex + 1} / {questions.length}
         </span>
       </div>
@@ -306,52 +352,68 @@ export const QuizView: React.FC<QuizViewProps> = ({
       {/* Progress Bar */}
       <ProgressBar current={currentIndex + 1} total={questions.length} />
 
-      {/* Quiz Card Container - matching screenshot theme */}
-      <div className="w-full bg-white dark:bg-neutral-950 rounded-3xl border border-neutral-200/90 dark:border-neutral-800/90 shadow-card p-6 sm:p-8 flex flex-col justify-between min-h-[380px] sm:min-h-[420px]">
-        {/* Sub-header instruction */}
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-sm sm:text-base font-medium text-neutral-500 dark:text-neutral-400">
+      {/* Quiz Card Container - matching screenshot theme with smooth layout transition */}
+      <motion.div
+        layout
+        transition={{ duration: 0.25, ease: "easeInOut" }}
+        className="w-full bg-white dark:bg-neutral-950 rounded-3xl border border-neutral-200/90 dark:border-neutral-800/90 shadow-card p-5 sm:p-8 flex flex-col justify-between min-h-[450px] sm:min-h-[420px] transition-[height] duration-300 ease-out"
+      >
+        {/* Sub-header instruction - fixed height to prevent vertical jitter */}
+        <div className="flex items-center justify-between h-9 mb-3 sm:mb-4">
+          <span className="text-sm sm:text-base font-medium text-neutral-500 dark:text-neutral-400 select-none">
             Pick the correct answer
           </span>
 
-          {isAnswered && (
-            <button
-              onClick={() => playPronunciation(currentQ.targetItem.word)}
-              className={`p-2 rounded-full border transition-all ${
-                isPlayingAudio
-                  ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-neutral-900 dark:border-white scale-105"
-                  : "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700"
-              }`}
-              title="Nghe lại phát âm"
-            >
-              <Volume2 className="w-4 h-4" />
-            </button>
-          )}
+          {/* Reserved slot for pronunciation audio button */}
+          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            {isAnswered && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => playPronunciation(currentQ.targetItem.word)}
+                className={`p-2 rounded-full border transition-all ${
+                  isPlayingAudio
+                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-neutral-900 dark:border-white scale-105"
+                    : "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-400"
+                }`}
+                title="Nghe lại phát âm"
+              >
+                <Volume2 className="w-4 h-4" />
+              </motion.button>
+            )}
+          </div>
         </div>
 
-        {/* Center: Vietnamese Question Prompt */}
-        <div className="flex flex-col items-center justify-center text-center my-auto py-6">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 leading-snug max-w-md break-words">
-            {currentQ.targetItem.meaning}
-          </h2>
+        {/* Center: Vietnamese Question Prompt + Reserved Pronunciation Slot */}
+        <div className="flex flex-col items-center justify-center text-center my-auto py-2 sm:py-4">
+          <div className="min-h-[60px] sm:min-h-[72px] flex items-center justify-center">
+            <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 leading-snug max-w-md break-words">
+              {currentQ.targetItem.meaning}
+            </h2>
+          </div>
 
-          {/* If answered, reveal pronunciation */}
-          <AnimatePresence>
-            {isAnswered && currentQ.targetItem.pronunciation && (
-              <motion.p
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="text-sm font-mono text-neutral-500 dark:text-neutral-400 mt-2 bg-neutral-100/80 dark:bg-neutral-850 px-3 py-1 rounded-lg border border-neutral-200/60 dark:border-neutral-800"
-              >
-                {currentQ.targetItem.pronunciation}
-              </motion.p>
-            )}
-          </AnimatePresence>
+          {/* Reserved Pronunciation slot (height is fixed so container never jumps when answered/next) */}
+          <div className="h-8 mt-2 flex items-center justify-center">
+            <AnimatePresence mode="wait">
+              {isAnswered && currentQ.targetItem.pronunciation ? (
+                <motion.p
+                  key="pronunciation-badge"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-xs sm:text-sm font-mono text-neutral-500 dark:text-neutral-400 bg-neutral-100/80 dark:bg-neutral-850 px-3 py-1 rounded-lg border border-neutral-200/60 dark:border-neutral-800 select-none"
+                >
+                  {currentQ.targetItem.pronunciation}
+                </motion.p>
+              ) : null}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* 4 Options Grid (2x2) - Exactly matching screenshot */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-4 mt-auto">
           {currentQ.options.map((option, idx) => {
             const isSelected = selectedOption === idx;
             const isCorrect = idx === currentQ.correctIndex;
@@ -387,7 +449,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 type="button"
                 disabled={isAnswered}
                 onClick={() => handleSelectOption(idx)}
-                className={`group relative flex items-center gap-3 px-4 py-3.5 sm:py-4 rounded-2xl border text-sm sm:text-base font-medium transition-all text-left shadow-subtle ${buttonStyles} ${
+                className={`group relative flex items-center gap-3 px-4 py-3 sm:py-4 rounded-2xl border text-sm sm:text-base font-medium transition-all text-left shadow-subtle ${buttonStyles} ${
                   !isAnswered ? "active:scale-[0.98] cursor-pointer" : "cursor-default"
                 }`}
               >
@@ -401,23 +463,37 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 {/* Option Text */}
                 <span className="flex-1 break-words font-medium">{option}</span>
 
-                {/* Status indicator icon if answered */}
-                {isAnswered && isCorrect && (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                )}
-                {isAnswered && isSelected && !isCorrect && (
-                  <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
-                )}
+                {/* Status indicator slot - always reserved (w-5 h-5) to prevent text wrapping/layout shift */}
+                <span className="w-5 h-5 flex items-center justify-center shrink-0">
+                  {isAnswered && isCorrect && (
+                    <motion.span
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    </motion.span>
+                  )}
+                  {isAnswered && isSelected && !isCorrect && (
+                    <motion.span
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <XCircle className="w-5 h-5 text-rose-500" />
+                    </motion.span>
+                  )}
+                </span>
               </button>
             );
           })}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Bottom Controls / Next Button */}
-      <div className="flex items-center justify-between min-h-[48px] px-1">
-        {/* Keyboard shortcut tips */}
-        <div className="text-xs text-neutral-400 dark:text-neutral-500 flex items-center gap-2">
+      {/* Bottom Controls / Next Button - fixed height to prevent vertical jitter */}
+      <div className="flex items-center justify-between h-12 px-1">
+        {/* Keyboard shortcut tips (desktop only, hidden on mobile to prevent wrapping) */}
+        <div className="hidden sm:flex text-xs text-neutral-400 dark:text-neutral-500 items-center gap-2">
           {!isAnswered ? (
             <span>
               Phím tắt:{" "}
@@ -444,20 +520,27 @@ export const QuizView: React.FC<QuizViewProps> = ({
           )}
         </div>
 
-        {/* Next Question Button */}
-        {isAnswered && (
-          <motion.button
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            onClick={handleNext}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-semibold text-sm transition-all active:scale-95 shadow-sm ml-auto"
-          >
-            <span>
-              {currentIndex < questions.length - 1 ? "Câu tiếp theo" : "Xem kết quả"}
-            </span>
-            <ChevronRight className="w-4 h-4" />
-          </motion.button>
-        )}
+        {/* Next Question Button with smooth presence */}
+        <div className="w-full sm:w-auto flex justify-end">
+          <AnimatePresence>
+            {isAnswered && (
+              <motion.button
+                key="next-button"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.2 }}
+                onClick={handleNext}
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-semibold text-sm transition-all active:scale-95 shadow-sm"
+              >
+                <span>
+                  {currentIndex < questions.length - 1 ? "Câu tiếp theo" : "Xem kết quả"}
+                </span>
+                <ChevronRight className="w-4 h-4" />
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </motion.div>
   );

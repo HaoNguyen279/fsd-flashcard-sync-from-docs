@@ -23,6 +23,9 @@ export default function Home() {
   const [testItems, setTestItems] = useState<VocabularyItem[]>([]);
   const [activeItem, setActiveItem] = useState<VocabularyItem | null>(null);
 
+  // Force-remount key for recovering from blank screen edge cases
+  const [viewKey, setViewKey] = useState(0);
+
   // Initialize theme: Default is light mode as requested
   useEffect(() => {
     const savedTheme = localStorage.getItem("vocab_theme");
@@ -110,14 +113,10 @@ export default function Home() {
 
   const handleStartTest = useCallback(
     (config: TestConfig) => {
-      // Sample items first, then set all states
       const sampled = sampleRandomItems(config.count);
       setTestConfig(config);
       setTestItems(sampled);
-      // Defer viewMode change to the next frame so testItems state is committed before render
-      requestAnimationFrame(() => {
-        setViewMode(config.mode);
-      });
+      setViewMode(config.mode);
     },
     [sampleRandomItems]
   );
@@ -130,11 +129,46 @@ export default function Home() {
     setViewMode("main");
   }, []);
 
-  // Shared transition for AnimatePresence children
-  const viewTransition = { duration: 0.2 };
-  const viewInitial = { opacity: 0, y: 15 };
-  const viewAnimate = { opacity: 1, y: 0 };
-  const viewExit = { opacity: 0, y: -15 };
+  // Reload current view — force re-mount by incrementing key
+  const handleReloadView = useCallback(() => {
+    setViewKey((k) => k + 1);
+  }, []);
+
+  // Render non-main view content (setup / quiz / practice)
+  const renderNonMainView = () => {
+    if (viewMode === "setup") {
+      return (
+        <TestingSetup
+          key={`setup-${viewKey}`}
+          totalCount={items.length}
+          onStart={handleStartTest}
+          onBack={handleBackToMain}
+        />
+      );
+    }
+    if (viewMode === "quiz" && testItems.length > 0) {
+      return (
+        <QuizView
+          key={`quiz-${viewKey}`}
+          items={testItems}
+          allItems={items}
+          onBack={handleBackToMain}
+          onRetry={handleRetryTest}
+        />
+      );
+    }
+    if (viewMode === "practice" && testItems.length > 0) {
+      return (
+        <TestingPracticeView
+          key={`practice-${viewKey}`}
+          items={testItems}
+          onBack={handleBackToMain}
+          onRetry={handleRetryTest}
+        />
+      );
+    }
+    return null;
+  };
 
   return (
     <main className="min-h-screen bg-[#fafafa] dark:bg-[#09090b] text-neutral-900 dark:text-neutral-100 flex flex-col justify-between px-4 py-6 sm:py-10 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
@@ -272,101 +306,59 @@ export default function Home() {
         {/* SUCCESSFUL DATA STATE */}
         {!isLoading && !error && items.length > 0 && (
           <div className="w-full">
-            <AnimatePresence mode="wait" initial={false}>
-              {viewMode === "main" && (
-                <motion.div
-                  key="main-view"
-                  initial={viewInitial}
-                  animate={viewAnimate}
-                  exit={viewExit}
-                  transition={viewTransition}
-                  className="w-full relative flex flex-col items-center justify-center"
-                >
-                  {/* Day Selector (Pinned to left on PC, top on mobile/tablet) */}
-                  <DaySelector
-                    days={days}
-                    selectedDay={selectedDay}
-                    onSelectDay={setSelectedDay}
-                    dayCounts={dayCounts}
+            {/* ===== MAIN VIEW ===== */}
+            {viewMode === "main" && (
+              <div
+                key={`main-${viewKey}`}
+                className="w-full relative flex flex-col items-center justify-center"
+                style={{ animation: "viewFadeIn 0.2s ease-out" }}
+              >
+                {/* Day Selector (Pinned to left on PC, top on mobile/tablet) */}
+                <DaySelector
+                  days={days}
+                  selectedDay={selectedDay}
+                  onSelectDay={setSelectedDay}
+                  dayCounts={dayCounts}
+                />
+
+                {/* Main Flashcard Deck and Testing Button */}
+                <div className="w-full max-w-xl mx-auto flex flex-col items-center">
+                  <FlashcardDeck
+                    items={filteredItems}
+                    selectedDate={selectedDay}
+                    onActiveItemChange={setActiveItem}
                   />
 
-                  {/* Main Flashcard Deck and Testing Button (Centered exactly in the middle of the screen) */}
-                  <div className="w-full max-w-xl mx-auto flex flex-col items-center">
-                    <FlashcardDeck
-                      items={filteredItems}
-                      selectedDate={selectedDay}
-                      onActiveItemChange={setActiveItem}
-                    />
-
-                    {/* Bottom Action: Open All Vocabulary Test */}
-                    <div className="mt-8 sm:mt-10 flex flex-col items-center">
-                      <button
-                        onClick={() => setViewMode("setup")}
-                        className="group flex items-center gap-2.5 px-6 py-3 rounded-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-semibold text-sm shadow-subtle hover:shadow-card transition-all active:scale-95"
-                      >
-                        <GraduationCap className="w-5 h-5 text-amber-400 dark:text-amber-500" />
-                        <span>Kiểm tra từ vựng ({items.length} từ)</span>
-                      </button>
-                      <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
-                        Trắc nghiệm ngẫu nhiên & Luyện tập flashcard
-                      </p>
-                    </div>
+                  {/* Bottom Action: Open All Vocabulary Test */}
+                  <div className="mt-8 sm:mt-10 flex flex-col items-center">
+                    <button
+                      onClick={() => setViewMode("setup")}
+                      className="group flex items-center gap-2.5 px-6 py-3 rounded-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-semibold text-sm shadow-subtle hover:shadow-card transition-all active:scale-95"
+                    >
+                      <GraduationCap className="w-5 h-5 text-amber-400 dark:text-amber-500" />
+                      <span>Kiểm tra từ vựng ({items.length} từ)</span>
+                    </button>
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
+                      Trắc nghiệm ngẫu nhiên & Luyện tập flashcard
+                    </p>
                   </div>
+                </div>
 
-                  {/* AI Chatbot Assistant Drawer on the right */}
-                  <ChatBotDrawer activeItem={activeItem} />
-                </motion.div>
-              )}
+                {/* AI Chatbot Assistant Drawer on the right */}
+                <ChatBotDrawer activeItem={activeItem} />
+              </div>
+            )}
 
-              {viewMode === "setup" && (
-                <motion.div
-                  key="setup-view"
-                  initial={viewInitial}
-                  animate={viewAnimate}
-                  exit={viewExit}
-                  transition={viewTransition}
-                >
-                  <TestingSetup
-                    totalCount={items.length}
-                    onStart={handleStartTest}
-                    onBack={handleBackToMain}
-                  />
-                </motion.div>
-              )}
-
-              {viewMode === "quiz" && testItems.length > 0 && (
-                <motion.div
-                  key="quiz-view"
-                  initial={viewInitial}
-                  animate={viewAnimate}
-                  exit={viewExit}
-                  transition={viewTransition}
-                >
-                  <QuizView
-                    items={testItems}
-                    allItems={items}
-                    onBack={handleBackToMain}
-                    onRetry={handleRetryTest}
-                  />
-                </motion.div>
-              )}
-
-              {viewMode === "practice" && testItems.length > 0 && (
-                <motion.div
-                  key="practice-view"
-                  initial={viewInitial}
-                  animate={viewAnimate}
-                  exit={viewExit}
-                  transition={viewTransition}
-                >
-                  <TestingPracticeView
-                    items={testItems}
-                    onBack={handleBackToMain}
-                    onRetry={handleRetryTest}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* ===== NON-MAIN VIEWS (setup / quiz / practice) — No AnimatePresence wrapper ===== */}
+            {viewMode !== "main" && (
+              <div
+                key={`${viewMode}-${viewKey}`}
+                className="w-full"
+                style={{ animation: "viewFadeIn 0.2s ease-out" }}
+              >
+                {renderNonMainView()}
+              </div>
+            )}
           </div>
         )}
       </div>
