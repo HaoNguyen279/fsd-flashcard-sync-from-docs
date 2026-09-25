@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, animate } from "framer-motion";
 import {
   Bot,
   X,
@@ -31,6 +31,116 @@ export const ChatBotDrawer: React.FC<ChatBotDrawerProps> = ({ activeItem }) => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ─── Draggable AI button (AssistiveTouch-style) ───
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dragX = useMotionValue(0);
+  const dragY = useMotionValue(0);
+  const [snappedEdge, setSnappedEdge] = useState<"left" | "right">("right");
+  const [isPositioned, setIsPositioned] = useState(false);
+  const [isDraggingActive, setIsDraggingActive] = useState(false);
+  const isDragging = useRef(false);
+
+  // Initialize button position from localStorage or default to top-right corner
+  useEffect(() => {
+    // Clear legacy storage key if exists
+    localStorage.removeItem("ai_btn_pos");
+
+    const defaultY = window.innerWidth >= 640 ? 84 : 76;
+    const estimatedBtnW = window.innerWidth >= 640 ? 115 : 44;
+
+    const saved = localStorage.getItem("ai_btn_pos_v2");
+    if (saved) {
+      try {
+        const { y: sy, edge } = JSON.parse(saved);
+        const validEdge = edge === "left" ? "left" : "right";
+        setSnappedEdge(validEdge);
+
+        const clampedY =
+          typeof sy === "number" && !isNaN(sy)
+            ? Math.max(16, Math.min(window.innerHeight - 60, sy))
+            : defaultY;
+
+        dragY.set(clampedY);
+        dragX.set(validEdge === "right" ? window.innerWidth - estimatedBtnW : 0);
+      } catch {
+        setSnappedEdge("right");
+        dragY.set(defaultY);
+        dragX.set(window.innerWidth - estimatedBtnW);
+      }
+    } else {
+      setSnappedEdge("right");
+      dragY.set(defaultY);
+      dragX.set(window.innerWidth - estimatedBtnW);
+    }
+  }, [dragX, dragY]);
+
+  // Calibrate exact position against edge once element is mounted and measured
+  useEffect(() => {
+    if (!buttonRef.current) return;
+    const btn = buttonRef.current;
+    const btnW = btn.offsetWidth;
+
+    if (snappedEdge === "right") {
+      dragX.set(window.innerWidth - btnW);
+    } else {
+      dragX.set(0);
+    }
+    setIsPositioned(true);
+  }, [snappedEdge, dragX]);
+
+  // Re-clamp position when the viewport is resized
+  useEffect(() => {
+    const handleResize = () => {
+      const btn = buttonRef.current;
+      if (!btn || isOpen) return;
+      const w = btn.offsetWidth;
+      const h = btn.offsetHeight;
+
+      if (snappedEdge === "right") {
+        dragX.set(window.innerWidth - w);
+      } else {
+        dragX.set(0);
+      }
+
+      const maxY = window.innerHeight - h - 16;
+      if (dragY.get() > maxY) dragY.set(maxY);
+      if (dragY.get() < 16) dragY.set(16);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isOpen, dragX, dragY, snappedEdge]);
+
+  // Snap to nearest horizontal edge on drag end (iPhone AssistiveTouch style)
+  const handleDragEnd = () => {
+    setIsDraggingActive(false);
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const btnW = btn.offsetWidth;
+    const btnH = btn.offsetHeight;
+    const currentX = dragX.get();
+    const currentY = dragY.get();
+
+    const centerX = currentX + btnW / 2;
+    const snapRight = centerX > window.innerWidth / 2;
+    const targetX = snapRight ? window.innerWidth - btnW : 0;
+    const clampedY = Math.max(
+      16,
+      Math.min(window.innerHeight - btnH - 16, currentY)
+    );
+    const edge = snapRight ? "right" : "left";
+
+    setSnappedEdge(edge);
+    animate(dragX, targetX, { type: "spring", stiffness: 300, damping: 30 });
+    animate(dragY, clampedY, { type: "spring", stiffness: 300, damping: 30 });
+
+    localStorage.setItem(
+      "ai_btn_pos_v2",
+      JSON.stringify({ x: targetX, y: clampedY, edge })
+    );
+  };
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -112,18 +222,43 @@ export const ChatBotDrawer: React.FC<ChatBotDrawerProps> = ({ activeItem }) => {
 
   return (
     <>
-      {/* COLLAPSED TAB ON THE RIGHT */}
+      {/* COLLAPSED DRAGGABLE BUTTON (AssistiveTouch-style) */}
       {!isOpen && (
         <motion.button
-          initial={{ x: 30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 30, opacity: 0 }}
-          onClick={() => setIsOpen(true)}
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-30 flex items-center gap-2 pl-3.5 pr-2.5 py-3 rounded-l-2xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 shadow-card hover:pl-4 transition-all active:scale-95 group"
-          title="Mở AI Trợ lý từ vựng"
+          ref={buttonRef}
+          drag
+          dragMomentum={false}
+          whileDrag={{ scale: 1.06 }}
+          onPointerDown={() => {
+            isDragging.current = false;
+          }}
+          onDragStart={() => {
+            isDragging.current = true;
+            setIsDraggingActive(true);
+          }}
+          onDragEnd={handleDragEnd}
+          onPointerUp={() => {
+            if (!isDragging.current) {
+              setIsOpen(true);
+            }
+          }}
+          style={{
+            x: dragX,
+            y: dragY,
+            opacity: isPositioned ? 1 : 0,
+            pointerEvents: isPositioned ? "auto" : "none",
+          }}
+          className={`fixed top-0 left-0 z-30 flex items-center gap-1.5 p-2.5 sm:px-3 sm:py-2.5 ${
+            isDraggingActive
+              ? "rounded-2xl shadow-2xl ring-2 ring-neutral-400/20 dark:ring-neutral-600/30"
+              : snappedEdge === "right"
+              ? "rounded-l-2xl rounded-r-none"
+              : "rounded-r-2xl rounded-l-none"
+          } bg-neutral-900/90 hover:bg-neutral-800 dark:bg-white/90 dark:hover:bg-neutral-100 text-white dark:text-neutral-900 shadow-card backdrop-blur-sm transition-[border-radius,box-shadow,background-color] duration-200 touch-none select-none cursor-grab active:cursor-grabbing`}
+          title="AI Trợ lý từ vựng"
         >
           <Bot className="w-4 h-4 text-amber-400 dark:text-amber-500" />
-          <span className="text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180 sm:[writing-mode:horizontal-tb] sm:rotate-0">
+          <span className="hidden sm:inline text-xs font-semibold tracking-wide">
             AI Trợ lý
           </span>
         </motion.button>

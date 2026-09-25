@@ -7,6 +7,41 @@ import {
 } from "./types";
 
 /**
+ * Regex to match parenthesized annotations in a vocabulary word.
+ * Captures things like: (adv), (v), (n), (adj), (n/v), (hesitate to do something,...), etc.
+ * This matches one or more parenthesized groups anywhere in the string.
+ */
+const WORD_ANNOTATION_REGEX = /\s*\(([^)]*)\)\s*/g;
+
+/**
+ * Process a raw word string to separate the clean word from any parenthesized annotations.
+ * Examples:
+ *   "subsequently (adv)"        → { cleanWord: "subsequently", annotation: "(adv)" }
+ *   "hesitate (v) (to do sth)"  → { cleanWord: "hesitate", annotation: "(v) (to do sth)" }
+ *   "apple"                     → { cleanWord: "apple", annotation: "" }
+ */
+export function processWordAnnotations(rawWord: string): {
+  cleanWord: string;
+  annotation: string;
+} {
+  const annotations: string[] = [];
+  // Collect all parenthesized groups
+  let match: RegExpExecArray | null;
+  const regex = new RegExp(WORD_ANNOTATION_REGEX.source, WORD_ANNOTATION_REGEX.flags);
+  while ((match = regex.exec(rawWord)) !== null) {
+    annotations.push(`(${match[1]})`);
+  }
+
+  // Remove all parenthesized groups from the word
+  const cleanWord = rawWord.replace(WORD_ANNOTATION_REGEX, " ").trim();
+
+  return {
+    cleanWord,
+    annotation: annotations.join(" ").trim(),
+  };
+}
+
+/**
  * Regular expression matching parent daily sections (e.g., "22/09", "23/09", "1/1").
  */
 export const DATE_SECTION_REGEX = /^\d{1,2}\/\d{1,2}$/;
@@ -155,15 +190,23 @@ export function extractVocabularyFromTable(
       continue;
     }
 
-    const word = rowTexts[colIndices.wordCol] || "";
+    const rawWord = rowTexts[colIndices.wordCol] || "";
     const pronunciation = rowTexts[colIndices.pronCol] || "";
-    const meaning = rowTexts[colIndices.meaningCol] || "";
+    const rawMeaning = rowTexts[colIndices.meaningCol] || "";
+
+    // Separate clean word from parenthesized annotations (e.g. "(adv)", "(to do sth)")
+    const { cleanWord, annotation } = processWordAnnotations(rawWord);
+
+    // Prepend annotation to meaning so it appears on the meaning side of the flashcard
+    const meaning = annotation
+      ? `${annotation} ${rawMeaning}`.trim()
+      : rawMeaning;
 
     // Only include rows that have at least a word or meaning
-    if (word || meaning) {
+    if (cleanWord || meaning) {
       items.push({
         date,
-        word,
+        word: cleanWord,
         pronunciation,
         meaning,
       });
