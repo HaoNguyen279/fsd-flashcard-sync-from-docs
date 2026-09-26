@@ -14,30 +14,112 @@ import {
 const WORD_ANNOTATION_REGEX = /\s*\(([^)]*)\)\s*/g;
 
 /**
- * Process a raw word string to separate the clean word from any parenthesized annotations.
+ * Regex matching standard English parts of speech abbreviations and full names.
+ * Supports combinations like v/n, adj, adv, phr v, vi, vt, etc.
+ */
+const POS_KEYWORD_REGEX =
+  /^(adj|adjective|adv|adverb|v|verb|n|noun|prep|preposition|conj|conjunction|pron|pronoun|interj|art|num|vi|vt|phr\s*v|phr|phrase|idiom|colloc|c|u|pl|plural|sing|singular)(\s*[\/,]\s*(adj|adjective|adv|adverb|v|verb|n|noun|prep|preposition|conj|conjunction|pron|pronoun|interj|art|num|vi|vt|phr\s*v|phr|phrase|idiom|colloc|c|u|pl|plural|sing|singular))*$/i;
+
+/**
+ * Helper to check if a parenthesized text is a part of speech (từ loại)
+ * such as (v), (adj), (adv), (n), (v/n), (vi), (vt), (phr v), etc.
+ */
+export function isPartOfSpeech(text: string): boolean {
+  if (!text) return false;
+  const normalized = text.trim().replace(/\./g, "").toLowerCase();
+  return POS_KEYWORD_REGEX.test(normalized);
+}
+
+/**
+ * Process a raw word string to separate:
+ * 1. cleanWord: The single first word for the front of the flashcard.
+ * 2. partOfSpeech: Grammatical parts of speech like (v), (adj), (adv), (n).
+ * 3. extraNotes: All other usage notes, synonyms, trailing notes like "= temporary", "(to do something)", "on sth".
+ * 
+ * Resulting flashcard structure:
+ * - Front: [cleanWord] (only 1 word)
+ * - Back:  [partOfSpeech] [Vietnamese meaning] [extraNotes]
+ * 
  * Examples:
- *   "subsequently (adv)"        → { cleanWord: "subsequently", annotation: "(adv)" }
- *   "hesitate (v) (to do sth)"  → { cleanWord: "hesitate", annotation: "(v) (to do sth)" }
- *   "apple"                     → { cleanWord: "apple", annotation: "" }
+ *   "hesitate (v) (to do something)" + "do dự" → front: "hesitate", back: "(v) do dự (to do something)"
+ *   "provisional (adj) = temporary" + "tạm thời" → front: "provisional", back: "(adj) tạm thời = temporary"
+ *   "subsequently (adv)" + "sau đó" → front: "subsequently", back: "(adv) sau đó"
+ *   "vital = crucial, essential" + "quan trọng" → front: "vital", back: "quan trọng = crucial, essential"
  */
 export function processWordAnnotations(rawWord: string): {
   cleanWord: string;
+  partOfSpeech: string;
+  extraNotes: string;
   annotation: string;
 } {
-  const annotations: string[] = [];
-  // Collect all parenthesized groups
+  if (!rawWord || typeof rawWord !== "string") {
+    return { cleanWord: "", partOfSpeech: "", extraNotes: "", annotation: "" };
+  }
+
+  const partOfSpeechList: string[] = [];
+  const extraParenNotesList: string[] = [];
+
+  // Collect all parenthesized groups and categorize into part of speech vs extra note
   let match: RegExpExecArray | null;
   const regex = new RegExp(WORD_ANNOTATION_REGEX.source, WORD_ANNOTATION_REGEX.flags);
   while ((match = regex.exec(rawWord)) !== null) {
-    annotations.push(`(${match[1]})`);
+    const content = match[1]?.trim();
+    if (content) {
+      if (isPartOfSpeech(content)) {
+        partOfSpeechList.push(`(${content})`);
+      } else {
+        extraParenNotesList.push(`(${content})`);
+      }
+    }
   }
 
   // Remove all parenthesized groups from the word
-  const cleanWord = rawWord.replace(WORD_ANNOTATION_REGEX, " ").trim();
+  const withoutParens = rawWord.replace(WORD_ANNOTATION_REGEX, " ").trim();
+
+  if (!withoutParens) {
+    const pos = partOfSpeechList.join(" ").trim();
+    const extra = extraParenNotesList.join(" ").trim();
+    return {
+      cleanWord: "",
+      partOfSpeech: pos,
+      extraNotes: extra,
+      annotation: [pos, extra].filter(Boolean).join(" ").trim(),
+    };
+  }
+
+  // Extract the first word and all trailing text after it
+  const matchFirstWord = withoutParens.match(/^([^\s]+)([\s\S]*)$/);
+
+  let cleanWord = withoutParens;
+  let trailingText = "";
+
+  if (matchFirstWord) {
+    let firstToken = matchFirstWord[1].trim();
+    trailingText = matchFirstWord[2].trim();
+
+    // Strip leading quotes or apostrophes (e.g. 'provisional -> provisional)
+    firstToken = firstToken.replace(/^['"“‘]+/, "");
+
+    // If the first token ends with a separator like ':', ',', ';', strip it from the word and prepend to trailingText
+    const separatorMatch = firstToken.match(/^(.*?)([:;,]+)$/);
+    if (separatorMatch) {
+      firstToken = separatorMatch[1].trim();
+      trailingText = `${separatorMatch[2]} ${trailingText}`.trim();
+    }
+
+    // Strip trailing quotes (e.g. "word" -> word)
+    cleanWord = firstToken.replace(/['"”’]+$/, "").trim();
+  }
+
+  const partOfSpeech = partOfSpeechList.join(" ").trim();
+  const extraNotes = [...extraParenNotesList, trailingText].filter(Boolean).join(" ").trim();
+  const annotation = [partOfSpeech, extraNotes].filter(Boolean).join(" ").trim();
 
   return {
     cleanWord,
-    annotation: annotations.join(" ").trim(),
+    partOfSpeech,
+    extraNotes,
+    annotation,
   };
 }
 
@@ -194,13 +276,16 @@ export function extractVocabularyFromTable(
     const pronunciation = rowTexts[colIndices.pronCol] || "";
     const rawMeaning = rowTexts[colIndices.meaningCol] || "";
 
-    // Separate clean word from parenthesized annotations (e.g. "(adv)", "(to do sth)")
-    const { cleanWord, annotation } = processWordAnnotations(rawWord);
+    // Separate clean word from part of speech and extra trailing notes
+    const { cleanWord, partOfSpeech, extraNotes } = processWordAnnotations(rawWord);
 
-    // Prepend annotation to meaning so it appears on the meaning side of the flashcard
-    const meaning = annotation
-      ? `${annotation} ${rawMeaning}`.trim()
-      : rawMeaning;
+    // Format meaning on the back: [partOfSpeech] [rawMeaning] [extraNotes]
+    // Example: "(v) do dự (to do something)"
+    // Example: "(adj) tạm thời = temporary"
+    const meaning = [partOfSpeech, rawMeaning, extraNotes]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
 
     // Only include rows that have at least a word or meaning
     if (cleanWord || meaning) {
@@ -257,7 +342,7 @@ export function parseGoogleDocument(doc: GoogleDocsDocument): VocabularyItem[] {
     for (const element of bodyContent) {
       // Check if this element is a date heading (e.g. "22/09")
       if (element.paragraph) {
-        const text = extractTextFromElement(element);
+        const text = extractTextFromElement(element).trim();
         if (DATE_SECTION_REGEX.test(text)) {
           currentDate = text;
           tableFoundForCurrentDate = false;

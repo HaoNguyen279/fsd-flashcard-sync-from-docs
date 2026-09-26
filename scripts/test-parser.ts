@@ -181,4 +181,90 @@ if (resultHeadings.length !== 3) {
   throw new Error(`Expected 3 items from Headings doc, got ${resultHeadings.length}`);
 }
 
+// 3. Test Multi-layer Word Annotation Processing
+console.log("--- Testing processWordAnnotations ---");
+import { processWordAnnotations } from "../lib/google-docs-parser";
+
+const testCases = [
+  {
+    input: "provisional (adj) = temporary",
+    rawMeaning: "tạm thời",
+    expectedWord: "provisional",
+    expectedPOS: "(adj)",
+    expectedExtraNotes: "= temporary",
+    expectedMeaning: "(adj) tạm thời = temporary",
+  },
+  {
+    input: "'provisional (adj) = temporary",
+    rawMeaning: "tạm thời",
+    expectedWord: "provisional",
+    expectedPOS: "(adj)",
+    expectedExtraNotes: "= temporary",
+    expectedMeaning: "(adj) tạm thời = temporary",
+  },
+  {
+    input: "subsequently (adv)",
+    rawMeaning: "sau đó",
+    expectedWord: "subsequently",
+    expectedPOS: "(adv)",
+    expectedExtraNotes: "",
+    expectedMeaning: "(adv) sau đó",
+  },
+  {
+    input: "hesitate (v) (to do something)",
+    rawMeaning: "do dự",
+    expectedWord: "hesitate",
+    expectedPOS: "(v)",
+    expectedExtraNotes: "(to do something)",
+    expectedMeaning: "(v) do dự (to do something)",
+  },
+  {
+    input: "embark (v) on/upon sth",
+    rawMeaning: "dấn thân, bắt đầu",
+    expectedWord: "embark",
+    expectedPOS: "(v)",
+    expectedExtraNotes: "on/upon sth",
+    expectedMeaning: "(v) dấn thân, bắt đầu on/upon sth",
+  },
+  {
+    input: "vital = crucial, essential",
+    rawMeaning: "quan trọng",
+    expectedWord: "vital",
+    expectedPOS: "",
+    expectedExtraNotes: "= crucial, essential",
+    expectedMeaning: "quan trọng = crucial, essential",
+  },
+  {
+    input: "apple",
+    rawMeaning: "quả táo",
+    expectedWord: "apple",
+    expectedPOS: "",
+    expectedExtraNotes: "",
+    expectedMeaning: "quả táo",
+  },
+];
+
+for (const tc of testCases) {
+  const result = processWordAnnotations(tc.input);
+  const formattedMeaning = [result.partOfSpeech, tc.rawMeaning, result.extraNotes]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  console.log(`Input: "${tc.input}" + Meaning: "${tc.rawMeaning}" -> Word: "${result.cleanWord}", Back: "${formattedMeaning}"`);
+
+  if (result.cleanWord !== tc.expectedWord) {
+    throw new Error(`Expected word "${tc.expectedWord}", got "${result.cleanWord}" for input "${tc.input}"`);
+  }
+  if (result.partOfSpeech !== tc.expectedPOS) {
+    throw new Error(`Expected POS "${tc.expectedPOS}", got "${result.partOfSpeech}" for input "${tc.input}"`);
+  }
+  if (result.extraNotes !== tc.expectedExtraNotes) {
+    throw new Error(`Expected extraNotes "${tc.expectedExtraNotes}", got "${result.extraNotes}" for input "${tc.input}"`);
+  }
+  if (formattedMeaning !== tc.expectedMeaning) {
+    throw new Error(`Expected formatted meaning "${tc.expectedMeaning}", got "${formattedMeaning}" for input "${tc.input}"`);
+  }
+}
+
 console.log("\n>>> ALL TESTS PASSED SUCCESSFULLY! <<<");
