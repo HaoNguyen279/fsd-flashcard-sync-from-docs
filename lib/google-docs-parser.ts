@@ -272,28 +272,21 @@ export function extractVocabularyFromTable(
       continue;
     }
 
-    const rawWord = rowTexts[colIndices.wordCol] || "";
+    const rawWordCell = rowTexts[colIndices.wordCol] || "";
     const pronunciation = rowTexts[colIndices.pronCol] || "";
-    const rawMeaning = rowTexts[colIndices.meaningCol] || "";
+    const meaning = rowTexts[colIndices.meaningCol] || "";
 
-    // Separate clean word from part of speech and extra trailing notes
-    const { cleanWord, partOfSpeech, extraNotes } = processWordAnnotations(rawWord);
-
-    // Format meaning on the back: [partOfSpeech] [rawMeaning] [extraNotes]
-    // Example: "(v) do dự (to do something)"
-    // Example: "(adj) tạm thời = temporary"
-    const meaning = [partOfSpeech, rawMeaning, extraNotes]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
+    // Extract only the first clean word for the front face
+    const { cleanWord } = processWordAnnotations(rawWordCell);
 
     // Only include rows that have at least a word or meaning
     if (cleanWord || meaning) {
       items.push({
         date,
         word: cleanWord,
+        rawWord: rawWordCell, // Full original text e.g. "courteous (adj) + to + someone"
         pronunciation,
-        meaning,
+        meaning,             // Raw Vietnamese meaning from docs, no annotation injected
       });
     }
   }
@@ -302,28 +295,53 @@ export function extractVocabularyFromTable(
 }
 
 /**
+ * Recursively collects all tabs that match DATE_SECTION_REGEX (dd/mm) from the full tab tree.
+ * Handles both:
+ * - Flat structure: top-level tabs titled "dd/mm"
+ * - Nested structure: top-level tabs titled "Tháng X" with child tabs titled "dd/mm"
+ */
+function collectDateTabs(tabs: NonNullable<GoogleDocsDocument["tabs"]>): NonNullable<GoogleDocsDocument["tabs"]> {
+  const result: NonNullable<GoogleDocsDocument["tabs"]> = [];
+  for (const tab of tabs) {
+    const title = tab.tabProperties?.title?.trim() || "";
+    if (DATE_SECTION_REGEX.test(title)) {
+      // This tab itself is a date tab — collect it
+      result.push(tab);
+    } else if (tab.childTabs && Array.isArray(tab.childTabs) && tab.childTabs.length > 0) {
+      // This tab is a group (e.g. "Tháng 9", "Tháng 10") — recurse into children
+      result.push(...collectDateTabs(tab.childTabs));
+    }
+    // Tabs that don't match dd/mm and have no children are ignored (e.g. "General Resources")
+  }
+  return result;
+}
+
+/**
  * Parses Google Docs document structure (supporting both Tabs and Headings).
- * - Tabs: Each parent tab matching "dd/month" is parsed; childTabs are ignored.
- * - Body: Each heading matching "dd/month" marks a daily section.
+ *
+ * Tab structures supported:
+ * - Flat (old):   Top-level tabs titled "dd/mm" directly.
+ * - Nested (new): Top-level tabs titled "Tháng 9"/"Tháng 10" containing child tabs titled "dd/mm".
+ *
+ * Fallback: Body content with "dd/mm" headings above tables.
  */
 export function parseGoogleDocument(doc: GoogleDocsDocument): VocabularyItem[] {
   const allItems: VocabularyItem[] = [];
 
   // 1. Check if document has tabs (Modern Google Docs Tabs structure)
   if (doc.tabs && Array.isArray(doc.tabs) && doc.tabs.length > 0) {
-    for (const tab of doc.tabs) {
+    // Collect all date tabs recursively (handles both flat and nested month-group structures)
+    const dateTabs = collectDateTabs(doc.tabs);
+
+    for (const tab of dateTabs) {
       const title = tab.tabProperties?.title?.trim() || "";
-      // Only process parent tabs matching "dd/month"
-      // Child tabs inside tab.childTabs are ignored as per requirements
-      if (DATE_SECTION_REGEX.test(title)) {
-        const bodyContent = tab.documentTab?.body?.content;
-        if (bodyContent && Array.isArray(bodyContent)) {
-          // Find the first table in this daily section
-          const tableElement = bodyContent.find((el) => el.table);
-          if (tableElement?.table) {
-            const items = extractVocabularyFromTable(tableElement.table, title);
-            allItems.push(...items);
-          }
+      const bodyContent = tab.documentTab?.body?.content;
+      if (bodyContent && Array.isArray(bodyContent)) {
+        // Find the first table in this daily section
+        const tableElement = bodyContent.find((el) => el.table);
+        if (tableElement?.table) {
+          const items = extractVocabularyFromTable(tableElement.table, title);
+          allItems.push(...items);
         }
       }
     }

@@ -1,6 +1,7 @@
 export interface VocabularyItem {
   date: string;
   word: string;
+  rawWord: string; // Full original cell text e.g. "courteous (adj) + to + someone"
   pronunciation: string;
   meaning: string;
 }

@@ -99,12 +99,18 @@ export const Flashcard: React.FC<FlashcardProps> = ({ item, isFlipped, onFlip })
           </div>
 
           {/* Center: Vietnamese Meaning */}
-          <div className="flex flex-col items-center justify-center text-center my-auto py-4">
+          <div className="flex flex-col items-center justify-center text-center my-auto py-4 gap-3">
+            {/* Raw word hint — shown when cell has annotations/usage notes */}
+            {item.rawWord && item.rawWord.trim() !== item.word && (
+              <p className="text-xs sm:text-sm text-neutral-400 dark:text-neutral-500 font-mono italic tracking-wide leading-relaxed max-w-xs">
+                {item.rawWord}
+              </p>
+            )}
             <p className="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-neutral-100 leading-relaxed max-w-sm">
               {item.meaning}
             </p>
             {item.pronunciation && (
-              <p className="text-sm text-neutral-400 dark:text-neutral-500 font-mono mt-3">
+              <p className="text-sm text-neutral-400 dark:text-neutral-500 font-mono">
                 {item.pronunciation}
               </p>
             )}

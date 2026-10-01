@@ -145,7 +145,101 @@ const mockDocumentWithHeadings: GoogleDocsDocument = {
   },
 };
 
-console.log("--- Testing Document with Tabs ---");
+// 3. Test Mock Document with NEW nested structure: "Tháng 9" → child tabs "dd/mm"
+const mockDocumentNested: GoogleDocsDocument = {
+  documentId: "mock-doc-nested",
+  title: "English Daily Vocab (Nested Month Groups)",
+  tabs: [
+    {
+      // "Tháng 10" group — does NOT match dd/mm, so we recurse into its childTabs
+      tabProperties: { tabId: "month-10", title: "Tháng 10", index: 0 },
+      childTabs: [
+        {
+          tabProperties: { tabId: "day-1-10", title: "1/10", index: 0, parentTabId: "month-10" },
+          documentTab: {
+            body: {
+              content: [
+                createMockTable([
+                  ["Từ vựng", "Phát âm", "Nghĩa"],
+                  ["mandatory (adj)", "/ˈmændətɔːri/", "bắt buộc"],
+                  ["comply (v)", "/kəmˈplaɪ/", "tuân thủ"],
+                ]),
+              ],
+            },
+          },
+        },
+        {
+          tabProperties: { tabId: "day-2-10", title: "2/10", index: 1, parentTabId: "month-10" },
+          documentTab: {
+            body: {
+              content: [
+                createMockTable([
+                  ["Từ vựng", "Phát âm", "Nghĩa"],
+                  ["significant (adj)", "/sɪɡˈnɪfɪkənt/", "đáng kể"],
+                ]),
+              ],
+            },
+          },
+        },
+      ],
+      documentTab: { body: { content: [] } },
+    },
+    {
+      // "Tháng 9" group
+      tabProperties: { tabId: "month-9", title: "Tháng 9", index: 1 },
+      childTabs: [
+        {
+          tabProperties: { tabId: "day-30-9", title: "30/9", index: 0, parentTabId: "month-9" },
+          documentTab: {
+            body: {
+              content: [
+                createMockTable([
+                  ["Từ vựng", "Phát âm", "Nghĩa"],
+                  ["innovative (adj)", "/ˈɪnəveɪtɪv/", "mang tính đổi mới"],
+                ]),
+              ],
+            },
+          },
+        },
+      ],
+      documentTab: { body: { content: [] } },
+    },
+    {
+      // Non-matching tab with no children — should be ignored
+      tabProperties: { tabId: "general", title: "General Resources", index: 2 },
+      documentTab: {
+        body: {
+          content: [
+            createMockTable([
+              ["Từ vựng", "Phát âm", "Nghĩa"],
+              ["ignored_nested", "/x/", "phải bị bỏ qua"],
+            ]),
+          ],
+        },
+      },
+    },
+  ],
+};
+
+console.log("--- Testing Document with NEW Nested Month-Group Tabs ---");
+const resultNested = parseGoogleDocument(mockDocumentNested);
+console.log(`Extracted ${resultNested.length} items from Nested doc.`);
+console.log(JSON.stringify(resultNested, null, 2));
+
+if (resultNested.length !== 4) {
+  throw new Error(`Expected 4 items from nested doc, got ${resultNested.length}`);
+}
+const has1_10 = resultNested.some((i) => i.date === "1/10" && i.word === "mandatory");
+if (!has1_10) throw new Error("Expected item from 1/10 not found!");
+const has30_9 = resultNested.some((i) => i.date === "30/9" && i.word === "innovative");
+if (!has30_9) throw new Error("Expected item from 30/9 not found!");
+const hasIgnoredNested = resultNested.some((i) => i.word === "ignored_nested");
+if (hasIgnoredNested) throw new Error("Non-matching tab was not ignored in nested structure!");
+
+console.log("Nested month-group tab test PASSED ✓");
+
+
+console.log("--- Testing Document with Tabs (flat/old structure) ---");
 const resultTabs = parseGoogleDocument(mockDocumentWithTabs);
 console.log(`Extracted ${resultTabs.length} items from Tabs.`);
 console.log(JSON.stringify(resultTabs, null, 2));
@@ -171,6 +265,17 @@ const hasResourceWord = resultTabs.some((i) => i.word === "resource");
 if (hasResourceWord) {
   throw new Error("Tab without dd/month was not ignored!");
 }
+
+// Verify rawWord is stored and word is clean
+const intentionallyItem = resultTabs.find((i) => i.word === "intentionally");
+if (!intentionallyItem) throw new Error("Could not find 'intentionally' item");
+if (intentionallyItem.rawWord !== "intentionally (adv)") {
+  throw new Error(`Expected rawWord "intentionally (adv)", got "${intentionallyItem.rawWord}"`);
+}
+if (intentionallyItem.meaning !== "cố tình, cố ý") {
+  throw new Error(`Expected meaning "cố tình, cố ý" (raw, no annotation), got "${intentionallyItem.meaning}"`);
+}
+console.log("rawWord + clean meaning test PASSED ✓");
 
 console.log("--- Testing Document with Headings ---");
 const resultHeadings = parseGoogleDocument(mockDocumentWithHeadings);
