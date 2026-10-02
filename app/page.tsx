@@ -10,10 +10,12 @@ import { TestingSetup, TestConfig } from "@/components/TestingSetup";
 import { QuizView } from "@/components/QuizView";
 import { TestingPracticeView } from "@/components/TestingPracticeView";
 import { ChatBotDrawer } from "@/components/ChatBotDrawer";
+import { SearchBar } from "@/components/SearchBar";
 
 export default function Home() {
   const [items, setItems] = useState<VocabularyItem[]>([]);
   const [selectedDay, setSelectedDay] = useState<string>("");
+  const [targetWord, setTargetWord] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
@@ -129,6 +131,12 @@ export default function Home() {
     setViewMode("main");
   }, []);
 
+  const handleSelectWordFromSearch = useCallback((item: VocabularyItem) => {
+    setViewMode("main");
+    setSelectedDay(item.date);
+    setTargetWord(item.word);
+  }, []);
+
   // Reload current view — force re-mount by incrementing key
   const handleReloadView = useCallback(() => {
     setViewKey((k) => k + 1);
@@ -173,14 +181,36 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#fafafa] dark:bg-[#09090b] text-neutral-900 dark:text-neutral-100 flex flex-col justify-between px-4 py-6 sm:py-10 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
       {/* Top Navigation Bar with Actions */}
-      <div className="w-full max-w-5xl mx-auto flex items-center justify-between mb-6 sm:mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 text-xs font-semibold text-neutral-600 dark:text-neutral-400">
-          <Sparkles className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200" />
-          <span>Synced with Google Docs</span>
+      <div className="w-full max-w-5xl mx-auto flex items-center justify-between gap-2.5 sm:gap-4 mb-6 sm:mb-8">
+        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+          <div className="inline-flex shrink-0 items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 text-xs font-semibold text-neutral-600 dark:text-neutral-400">
+            <Sparkles className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200 shrink-0" />
+            <span className="hidden md:inline">Synced with Google Docs</span>
+            <span className="md:hidden">Docs</span>
+          </div>
+
+          {/* Instant Search Bar */}
+          <SearchBar items={items} onSelectWord={handleSelectWordFromSearch} />
         </div>
 
-        {/* Top-Right Action Buttons: Reload Data & Theme Toggle */}
-        <div className="flex items-center gap-2">
+        {/* Top-Right Action Buttons: Test Vocabulary, Reload Data & Theme Toggle */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Vocabulary Test Button */}
+          {viewMode === "main" && items.length > 0 && (
+            <button
+              onClick={() => setViewMode("setup")}
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 shadow-subtle hover:shadow transition-all active:scale-95 text-xs font-semibold shrink-0"
+              title={`Kiểm tra từ vựng (${items.length} từ)`}
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-amber-400 dark:text-amber-500 shrink-0" />
+              <span className="hidden lg:inline">Kiểm tra từ vựng</span>
+              <span className="hidden sm:inline lg:hidden">Kiểm tra</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-neutral-900/15 font-mono">
+                {items.length}
+              </span>
+            </button>
+          )}
+
           {/* Reload Data Button (only show when on main screen) */}
           {viewMode === "main" && (
             <button
@@ -326,22 +356,9 @@ export default function Home() {
                   <FlashcardDeck
                     items={filteredItems}
                     selectedDate={selectedDay}
+                    targetWord={targetWord}
                     onActiveItemChange={setActiveItem}
                   />
-
-                  {/* Bottom Action: Open All Vocabulary Test */}
-                  <div className="mt-8 sm:mt-10 flex flex-col items-center">
-                    <button
-                      onClick={() => setViewMode("setup")}
-                      className="group flex items-center gap-2.5 px-6 py-3 rounded-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-semibold text-sm shadow-subtle hover:shadow-card transition-all active:scale-95"
-                    >
-                      <GraduationCap className="w-5 h-5 text-amber-400 dark:text-amber-500" />
-                      <span>Kiểm tra từ vựng ({items.length} từ)</span>
-                    </button>
-                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
-                      Trắc nghiệm ngẫu nhiên & Luyện tập flashcard
-                    </p>
-                  </div>
                 </div>
 
                 {/* AI Chatbot Assistant Drawer on the right */}

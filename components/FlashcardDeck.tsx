@@ -10,6 +10,7 @@ import { ProgressBar } from "./ProgressBar";
 interface FlashcardDeckProps {
   items: VocabularyItem[];
   selectedDate: string;
+  targetWord?: string | null;
   onActiveItemChange?: (item: VocabularyItem | null) => void;
 }
 
@@ -44,6 +45,7 @@ const slideVariants = {
 export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({
   items,
   selectedDate,
+  targetWord,
   onActiveItemChange,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -51,13 +53,24 @@ export const FlashcardDeck: React.FC<FlashcardDeckProps> = ({
   const [direction, setDirection] = useState(0);
   const [deck, setDeck] = useState<VocabularyItem[]>(items);
 
-  // Sync deck when items change
+  // Sync deck when items or targetWord change
   useEffect(() => {
     setDeck(items);
+    if (targetWord) {
+      const idx = items.findIndex(
+        (item) => item.word.toLowerCase() === targetWord.toLowerCase()
+      );
+      if (idx !== -1) {
+        setCurrentIndex(idx);
+        setIsFlipped(false);
+        setDirection(0);
+        return;
+      }
+    }
     setCurrentIndex(0);
     setIsFlipped(false);
     setDirection(0);
-  }, [items, selectedDate]);
+  }, [items, selectedDate, targetWord]);
 
   // Notify parent of active item
   useEffect(() => {
