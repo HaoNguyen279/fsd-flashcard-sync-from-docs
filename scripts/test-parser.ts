@@ -1,5 +1,6 @@
 import { parseGoogleDocument } from "../lib/google-docs-parser";
 import { GoogleDocsDocument } from "../lib/types";
+import { cleanMeaningForHardcore } from "../components/HardcoreView";
 
 // Helper to construct mock structural table elements in Google Docs API format
 function createMockTable(rows: string[][]) {
@@ -275,7 +276,10 @@ if (intentionallyItem.rawWord !== "intentionally (adv)") {
 if (intentionallyItem.meaning !== "cố tình, cố ý") {
   throw new Error(`Expected meaning "cố tình, cố ý" (raw, no annotation), got "${intentionallyItem.meaning}"`);
 }
-console.log("rawWord + clean meaning test PASSED ✓");
+if (intentionallyItem.partOfSpeech !== "(adv)") {
+  throw new Error(`Expected partOfSpeech "(adv)", got "${intentionallyItem.partOfSpeech}"`);
+}
+console.log("rawWord + partOfSpeech + clean meaning test PASSED ✓");
 
 console.log("--- Testing Document with Headings ---");
 const resultHeadings = parseGoogleDocument(mockDocumentWithHeadings);
@@ -369,6 +373,32 @@ for (const tc of testCases) {
   }
   if (formattedMeaning !== tc.expectedMeaning) {
     throw new Error(`Expected formatted meaning "${tc.expectedMeaning}", got "${formattedMeaning}" for input "${tc.input}"`);
+  }
+}
+
+console.log("\n--- Testing cleanMeaningForHardcore ---");
+const hardcoreMeaningTestCases = [
+  { input: "(v) tuân thủ, chấp hành", expected: "tuân thủ, chấp hành" },
+  { input: "(adj) đáng kể", expected: "đáng kể" },
+  { input: "(v/n) bỏ bê, sao nhãng", expected: "bỏ bê, sao nhãng" },
+  { input: "(v, n) bỏ bê", expected: "bỏ bê" },
+  { input: "bỏ bê, sao nhãng (v/n)", expected: "bỏ bê, sao nhãng" },
+  { input: "(n): sự tuyên bố", expected: "sự tuyên bố" },
+  { input: "v. tuân thủ", expected: "tuân thủ" },
+  { input: "tuân thủ (v)", expected: "tuân thủ" },
+  { input: "tuân thủ (ghi chú: thường đi với with)", expected: "tuân thủ" },
+  { input: "(v) tuân thủ (ghi chú: đi với to)", expected: "tuân thủ" },
+  { input: "ghi nhớ từ vựng", expected: "ghi nhớ từ vựng" },
+  { input: "ghi nhận đóng góp", expected: "ghi nhận đóng góp" },
+  { input: "(phrase) từng bước một", expected: "từng bước một" },
+  { input: "cố tình, cố ý", expected: "cố tình, cố ý" },
+];
+
+for (const tc of hardcoreMeaningTestCases) {
+  const actual = cleanMeaningForHardcore(tc.input);
+  console.log(`Hardcore meaning: "${tc.input}" -> "${actual}"`);
+  if (actual !== tc.expected) {
+    throw new Error(`Expected "${tc.expected}", got "${actual}" for input "${tc.input}"`);
   }
 }
 

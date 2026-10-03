@@ -11,6 +11,7 @@ import { QuizView } from "@/components/QuizView";
 import { TestingPracticeView } from "@/components/TestingPracticeView";
 import { ChatBotDrawer } from "@/components/ChatBotDrawer";
 import { SearchBar } from "@/components/SearchBar";
+import { HardcoreView } from "@/components/HardcoreView";
 
 export default function Home() {
   const [items, setItems] = useState<VocabularyItem[]>([]);
@@ -20,7 +21,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
 
-  const [viewMode, setViewMode] = useState<"main" | "setup" | "quiz" | "practice">("main");
+  const [viewMode, setViewMode] = useState<"main" | "setup" | "quiz" | "practice" | "hardcore">("main");
   const [testConfig, setTestConfig] = useState<TestConfig | null>(null);
   const [testItems, setTestItems] = useState<VocabularyItem[]>([]);
   const [activeItem, setActiveItem] = useState<VocabularyItem | null>(null);
@@ -106,16 +107,16 @@ export default function Home() {
 
   // Testing feature handlers
   const sampleRandomItems = useCallback(
-    (count: number) => {
-      const shuffled = [...items].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, Math.min(count, items.length));
+    (count: number, pool: VocabularyItem[]) => {
+      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, Math.min(count, pool.length));
     },
-    [items]
+    []
   );
 
   const handleStartTest = useCallback(
-    (config: TestConfig) => {
-      const sampled = sampleRandomItems(config.count);
+    (config: TestConfig, candidateItems: VocabularyItem[]) => {
+      const sampled = sampleRandomItems(config.count, candidateItems);
       setTestConfig(config);
       setTestItems(sampled);
       setViewMode(config.mode);
@@ -148,7 +149,10 @@ export default function Home() {
       return (
         <TestingSetup
           key={`setup-${viewKey}`}
-          totalCount={items.length}
+          items={items}
+          days={days}
+          dayCounts={dayCounts}
+          defaultSelectedDay={selectedDay}
           onStart={handleStartTest}
           onBack={handleBackToMain}
         />
@@ -170,6 +174,17 @@ export default function Home() {
         <TestingPracticeView
           key={`practice-${viewKey}`}
           items={testItems}
+          onBack={handleBackToMain}
+          onRetry={handleRetryTest}
+        />
+      );
+    }
+    if (viewMode === "hardcore" && testItems.length > 0) {
+      return (
+        <HardcoreView
+          key={`hardcore-${viewKey}`}
+          items={testItems}
+          allItems={items}
           onBack={handleBackToMain}
           onRetry={handleRetryTest}
         />

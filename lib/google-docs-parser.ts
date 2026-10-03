@@ -276,8 +276,8 @@ export function extractVocabularyFromTable(
     const pronunciation = rowTexts[colIndices.pronCol] || "";
     const meaning = rowTexts[colIndices.meaningCol] || "";
 
-    // Extract only the first clean word for the front face
-    const { cleanWord } = processWordAnnotations(rawWordCell);
+    // Extract clean word and part of speech
+    const { cleanWord, partOfSpeech } = processWordAnnotations(rawWordCell);
 
     // Only include rows that have at least a word or meaning
     if (cleanWord || meaning) {
@@ -285,6 +285,7 @@ export function extractVocabularyFromTable(
         date,
         word: cleanWord,
         rawWord: rawWordCell, // Full original text e.g. "courteous (adj) + to + someone"
+        partOfSpeech,
         pronunciation,
         meaning,             // Raw Vietnamese meaning from docs, no annotation injected
       });

@@ -196,8 +196,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               <X className="w-3 h-3" />
             </button>
           ) : (
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/60 rounded">
-              ⌘K
+            <kbd
+              className="hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/60 rounded"
+              title="Nhấn Enter để mở"
+            >
+              <CornerDownLeft className="w-2.5 h-2.5" />
             </kbd>
           )}
         </div>

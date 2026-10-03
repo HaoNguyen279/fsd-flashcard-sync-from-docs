@@ -2,6 +2,7 @@ export interface VocabularyItem {
   date: string;
   word: string;
   rawWord: string; // Full original cell text e.g. "courteous (adj) + to + someone"
+  partOfSpeech?: string; // e.g. "(adj)", "(v)", "(adv)", "(n)"
   pronunciation: string;
   meaning: string;
 }
