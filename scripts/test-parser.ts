@@ -376,6 +376,97 @@ for (const tc of testCases) {
   }
 }
 
+console.log("\n--- Testing 15 Required Multi-Word Phrase & Delimiter Test Cases ---");
+const multiWordTestCases = [
+  {
+    rawWord: "Owing to (prep) = Due to= Because of=As a result of +(N) (prep)",
+    expectedWord: "Owing to",
+    expectedPOS: "(prep)",
+  },
+  {
+    rawWord: "courteous (adj) + [to] + [someone]",
+    expectedWord: "courteous",
+    expectedPOS: "(adj)",
+  },
+  {
+    rawWord: "apart from= a side from=except for+O",
+    expectedWord: "apart from",
+    expectedPOS: "",
+  },
+  {
+    rawWord: "diplomat(n)",
+    expectedWord: "diplomat",
+    expectedPOS: "(n)",
+  },
+  {
+    rawWord: "beautiful (adj)",
+    expectedWord: "beautiful",
+    expectedPOS: "(adj)",
+  },
+  {
+    rawWord: "hesitate (v) (to do something)",
+    expectedWord: "hesitate",
+    expectedPOS: "(v)",
+  },
+  {
+    rawWord: "provisional (adj) = temporary",
+    expectedWord: "provisional",
+    expectedPOS: "(adj)",
+  },
+  {
+    rawWord: "'provisional (adj) = temporary",
+    expectedWord: "provisional",
+    expectedPOS: "(adj)",
+  },
+  {
+    rawWord: "embark (v) on/upon sth",
+    expectedWord: "embark",
+    expectedPOS: "(v)",
+  },
+  {
+    rawWord: "vital = crucial, essential",
+    expectedWord: "vital",
+    expectedPOS: "",
+  },
+  {
+    rawWord: "neglect (v/n)",
+    expectedWord: "neglect",
+    expectedPOS: "(v/n)",
+  },
+  {
+    rawWord: "because of (prep) = since",
+    expectedWord: "because of",
+    expectedPOS: "(prep)",
+  },
+  {
+    rawWord: "owing to, due to, because of",
+    expectedWord: "owing to",
+    expectedPOS: "",
+  },
+  {
+    rawWord: "well-known (adj)",
+    expectedWord: "well-known",
+    expectedPOS: "(adj)",
+  },
+  {
+    rawWord: "apple",
+    expectedWord: "apple",
+    expectedPOS: "",
+  },
+];
+
+for (const tc of multiWordTestCases) {
+  const result = processWordAnnotations(tc.rawWord);
+  console.log(`Test: "${tc.rawWord}" -> Word: "${result.cleanWord}", POS: "${result.partOfSpeech}"`);
+  if (result.cleanWord !== tc.expectedWord) {
+    throw new Error(`[FAIL] Expected word "${tc.expectedWord}", got "${result.cleanWord}" for "${tc.rawWord}"`);
+  }
+  if (result.partOfSpeech !== tc.expectedPOS) {
+    throw new Error(`[FAIL] Expected POS "${tc.expectedPOS}", got "${result.partOfSpeech}" for "${tc.rawWord}"`);
+  }
+}
+console.log("✓ All 15 required multi-word & delimiter test cases passed successfully!");
+
 console.log("\n--- Testing cleanMeaningForHardcore ---");
 const hardcoreMeaningTestCases = [
   { input: "(v) tuân thủ, chấp hành", expected: "tuân thủ, chấp hành" },

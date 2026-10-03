@@ -69,7 +69,15 @@ export const Flashcard: React.FC<FlashcardProps> = ({ item, isFlipped, onFlip })
 
           {/* Center: Word and Pronunciation */}
           <div className="flex flex-col items-center justify-center text-center my-auto py-4">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 mb-3 break-words">
+            <h2
+              className={`font-bold tracking-tight text-neutral-900 dark:text-neutral-100 mb-3 break-words max-w-full px-2 ${
+                item.word.length > 25
+                  ? "text-xl sm:text-2xl"
+                  : item.word.length > 15
+                  ? "text-2xl sm:text-3xl"
+                  : "text-3xl sm:text-4xl"
+              }`}
+            >
               {item.word}
             </h2>
             {item.pronunciation && (
@@ -93,7 +101,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({ item, isFlipped, onFlip })
             <span className="text-xs font-semibold tracking-wider text-emerald-600 dark:text-emerald-400 uppercase bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-800/60">
               Vietnamese Meaning
             </span>
-            <span className="text-xs font-medium text-neutral-400 dark:text-neutral-500">
+            <span className="text-xs font-medium text-neutral-400 dark:text-neutral-500 truncate max-w-[200px]">
               {item.word}
             </span>
           </div>

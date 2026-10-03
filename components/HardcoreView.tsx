@@ -660,9 +660,9 @@ export const HardcoreView: React.FC<HardcoreViewProps> = ({
                   type="button"
                   disabled={isEvaluated}
                   onClick={() => handleSelectWord(word)}
-                  className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all active:scale-[0.98] ${buttonStyle}`}
+                  className={`p-3 min-h-[52px] rounded-2xl border text-left flex items-center justify-between transition-all active:scale-[0.98] ${buttonStyle}`}
                 >
-                  <span className="font-semibold text-sm truncate">{word}</span>
+                  <span className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight break-words mr-1">{word}</span>
                   <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 shrink-0">
                     {idx + 1}
                   </kbd>

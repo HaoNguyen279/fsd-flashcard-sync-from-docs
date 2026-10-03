@@ -31,20 +31,39 @@ export function isPartOfSpeech(text: string): boolean {
 }
 
 /**
- * Process a raw word string to separate:
- * 1. cleanWord: The single first word for the front of the flashcard.
- * 2. partOfSpeech: Grammatical parts of speech like (v), (adj), (adv), (n).
- * 3. extraNotes: All other usage notes, synonyms, trailing notes like "= temporary", "(to do something)", "on sth".
- * 
- * Resulting flashcard structure:
- * - Front: [cleanWord] (only 1 word)
- * - Back:  [partOfSpeech] [Vietnamese meaning] [extraNotes]
- * 
- * Examples:
- *   "hesitate (v) (to do something)" + "do dự" → front: "hesitate", back: "(v) do dự (to do something)"
- *   "provisional (adj) = temporary" + "tạm thời" → front: "provisional", back: "(adj) tạm thời = temporary"
- *   "subsequently (adv)" + "sau đó" → front: "subsequently", back: "(adv) sau đó"
- *   "vital = crucial, essential" + "quan trọng" → front: "vital", back: "quan trọng = crucial, essential"
+ * Delimiters used to separate cleanWord from annotations/notes.
+ * Matches: (, [, =, +, :, ;, ,, →, ≈, or a dash surrounded by spaces (\s[-–—]\s).
+ * Compound words (well-known) and attached slashes (and/or) are NOT delimiters.
+ */
+const WORD_DELIMITER_REGEX = /([(\[=+:,;→≈]|\s[-–—]\s)/;
+
+/**
+ * Strong delimiters marking the boundary of the "head region" (vùng đầu) for part of speech.
+ * Delimiters: =, +, :, ;, →, ≈.
+ */
+const STRONG_DELIMITER_REGEX = /[=+:,;→≈]/;
+
+/**
+ * Process a raw word string from Google Docs to separate:
+ * 1. cleanWord: Single word or multi-word phrase for the front of the flashcard.
+ * 2. partOfSpeech: Grammatical parts of speech found in the head region (e.g. (v), (adj), (adv), (n), (prep), (v/n)).
+ * 3. extraNotes: All usage notes, synonyms, and trailing notes (e.g. "= temporary", "(to do something)", "on sth").
+ * 4. annotation: Combined partOfSpeech + extraNotes.
+ *
+ * Rules:
+ * 1. Normalization: Collapse consecutive whitespace to 1 space, trim, strip leading quotes/apostrophes ('"‘’“”`).
+ * 2. cleanWord: Text BEFORE the first delimiter.
+ *    Strip trailing quotes ('"‘’“”`) and trailing punctuation (,;:), then trim.
+ *    Fallback: If cleanWord is empty, strip all (...) and take text before first delimiter or first token.
+ * 3. partOfSpeech:
+ *    Head region = text before the first STRONG delimiter (=, +, :, ;, →, ≈).
+ *    Only parenthesized groups (...) in the head region that satisfy isPartOfSpeech() are included.
+ *    Groups after strong delimiters (e.g. +(N), (prep) at the end) remain in notes.
+ *    Deduplicate partOfSpeechList (case-insensitive, preserving order).
+ * 4. extraNotes:
+ *    Remainder of the string after cleanWord, with POS groups removed from the head region of the remainder.
+ *    Whitespace collapsed and trimmed.
+ * 5. rawWord: Preserved as-is.
  */
 export function processWordAnnotations(rawWord: string): {
   cleanWord: string;
@@ -56,63 +75,125 @@ export function processWordAnnotations(rawWord: string): {
     return { cleanWord: "", partOfSpeech: "", extraNotes: "", annotation: "" };
   }
 
-  const partOfSpeechList: string[] = [];
-  const extraParenNotesList: string[] = [];
+  // 1. Chuẩn hóa: gộp whitespace liên tiếp thành 1 dấu cách, trim, xóa quotes/apostrophes ở đầu chuỗi
+  let normalized = rawWord.replace(/\s+/g, " ").trim();
+  normalized = normalized.replace(/^['"‘’“”`]+/, "").trim();
 
-  // Collect all parenthesized groups and categorize into part of speech vs extra note
-  let match: RegExpExecArray | null;
-  const regex = new RegExp(WORD_ANNOTATION_REGEX.source, WORD_ANNOTATION_REGEX.flags);
-  while ((match = regex.exec(rawWord)) !== null) {
-    const content = match[1]?.trim();
-    if (content) {
-      if (isPartOfSpeech(content)) {
-        partOfSpeechList.push(`(${content})`);
+  if (!normalized) {
+    return { cleanWord: "", partOfSpeech: "", extraNotes: "", annotation: "" };
+  }
+
+  // 2. Xác định cleanWord: lấy phần text TRƯỚC delimiter đầu tiên tìm thấy trong chuỗi
+  const delimiterMatch = normalized.match(WORD_DELIMITER_REGEX);
+
+  let cleanWord = "";
+  let remainder = "";
+
+  if (delimiterMatch && delimiterMatch.index !== undefined) {
+    const rawClean = normalized.slice(0, delimiterMatch.index);
+    cleanWord = rawClean
+      .replace(/['"‘’“”`]+$/, "")
+      .replace(/[,;:]+$/, "")
+      .replace(/['"‘’“”`]+$/, "")
+      .trim();
+
+    remainder = normalized.slice(delimiterMatch.index);
+  } else {
+    // Không có delimiter trong chuỗi
+    cleanWord = normalized
+      .replace(/['"‘’“”`]+$/, "")
+      .replace(/[,;:]+$/, "")
+      .replace(/['"‘’“”`]+$/, "")
+      .trim();
+    remainder = "";
+  }
+
+  // Fallback: nếu cleanWord rỗng (vd chuỗi bắt đầu bằng delimiter như "(adj) word" hoặc "= note")
+  if (!cleanWord) {
+    const withoutParens = normalized.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+    const fallbackMatch = withoutParens.match(WORD_DELIMITER_REGEX);
+    if (fallbackMatch && fallbackMatch.index !== undefined && fallbackMatch.index > 0) {
+      cleanWord = withoutParens
+        .slice(0, fallbackMatch.index)
+        .replace(/['"‘’“”`]+$/, "")
+        .replace(/[,;:]+$/, "")
+        .replace(/['"‘’“”`]+$/, "")
+        .trim();
+    }
+    if (!cleanWord) {
+      const matchFirstWord = withoutParens.match(/^([^\s]+)([\s\S]*)$/);
+      if (matchFirstWord) {
+        let firstToken = matchFirstWord[1].trim().replace(/^['"‘’“”`]+/, "");
+        firstToken = firstToken.replace(/[,;:]+$/, "").replace(/['"‘’“”`]+$/, "").trim();
+        cleanWord = firstToken;
       } else {
-        extraParenNotesList.push(`(${content})`);
+        cleanWord = withoutParens;
       }
     }
-  }
 
-  // Remove all parenthesized groups from the word
-  const withoutParens = rawWord.replace(WORD_ANNOTATION_REGEX, " ").trim();
-
-  if (!withoutParens) {
-    const pos = partOfSpeechList.join(" ").trim();
-    const extra = extraParenNotesList.join(" ").trim();
-    return {
-      cleanWord: "",
-      partOfSpeech: pos,
-      extraNotes: extra,
-      annotation: [pos, extra].filter(Boolean).join(" ").trim(),
-    };
-  }
-
-  // Extract the first word and all trailing text after it
-  const matchFirstWord = withoutParens.match(/^([^\s]+)([\s\S]*)$/);
-
-  let cleanWord = withoutParens;
-  let trailingText = "";
-
-  if (matchFirstWord) {
-    let firstToken = matchFirstWord[1].trim();
-    trailingText = matchFirstWord[2].trim();
-
-    // Strip leading quotes or apostrophes (e.g. 'provisional -> provisional)
-    firstToken = firstToken.replace(/^['"“‘]+/, "");
-
-    // If the first token ends with a separator like ':', ',', ';', strip it from the word and prepend to trailingText
-    const separatorMatch = firstToken.match(/^(.*?)([:;,]+)$/);
-    if (separatorMatch) {
-      firstToken = separatorMatch[1].trim();
-      trailingText = `${separatorMatch[2]} ${trailingText}`.trim();
+    const cleanWordIdx = normalized.indexOf(cleanWord);
+    if (cleanWordIdx !== -1) {
+      remainder = (
+        normalized.slice(0, cleanWordIdx) +
+        " " +
+        normalized.slice(cleanWordIdx + cleanWord.length)
+      ).trim();
     }
-
-    // Strip trailing quotes (e.g. "word" -> word)
-    cleanWord = firstToken.replace(/['"”’]+$/, "").trim();
   }
 
-  const partOfSpeech = partOfSpeechList.join(" ").trim();
-  const extraNotes = [...extraParenNotesList, trailingText].filter(Boolean).join(" ").trim();
+  // 3. Xác định partOfSpeech:
+  // "Vùng đầu" = phần chuỗi trước delimiter MẠNH đầu tiên trong tập: = + : ; → ≈
+  const strongMatch = normalized.match(STRONG_DELIMITER_REGEX);
+  const headRegion =
+    strongMatch && strongMatch.index !== undefined
+      ? normalized.slice(0, strongMatch.index)
+      : normalized;
+
+  // Chỉ các nhóm (...) nằm trong vùng đầu và thỏa isPartOfSpeech() mới được đưa vào partOfSpeechList
+  const partOfSpeechList: string[] = [];
+  const parenRegex = /\(([^)]*)\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = parenRegex.exec(headRegion)) !== null) {
+    const content = match[1]?.trim();
+    if (content && isPartOfSpeech(content)) {
+      partOfSpeechList.push(`(${content})`);
+    }
+  }
+
+  // Dedupe partOfSpeechList (giữ thứ tự, so sánh lowercase)
+  const seenPos = new Set<string>();
+  const deduplicatedPosList: string[] = [];
+  for (const pos of partOfSpeechList) {
+    const lower = pos.toLowerCase();
+    if (!seenPos.has(lower)) {
+      seenPos.add(lower);
+      deduplicatedPosList.push(pos);
+    }
+  }
+  const partOfSpeech = deduplicatedPosList.join(" ").trim();
+
+  // 4. extraNotes:
+  // Phần còn lại của chuỗi sau cleanWord, loại bỏ các nhóm POS đã đưa vào partOfSpeech
+  let headOfRemainder = remainder;
+  let tailOfRemainder = "";
+
+  const remainderStrongMatch = remainder.match(STRONG_DELIMITER_REGEX);
+  if (remainderStrongMatch && remainderStrongMatch.index !== undefined) {
+    headOfRemainder = remainder.slice(0, remainderStrongMatch.index);
+    tailOfRemainder = remainder.slice(remainderStrongMatch.index);
+  }
+
+  // Xóa các nhóm POS đã đưa vào partOfSpeech khỏi headOfRemainder
+  for (const posGroup of deduplicatedPosList) {
+    const escaped = posGroup.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    headOfRemainder = headOfRemainder.replace(new RegExp(`\\s*${escaped}\\s*`, "i"), " ");
+  }
+
+  const extraNotes = `${headOfRemainder} ${tailOfRemainder}`
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // 5. annotation
   const annotation = [partOfSpeech, extraNotes].filter(Boolean).join(" ").trim();
 
   return {
