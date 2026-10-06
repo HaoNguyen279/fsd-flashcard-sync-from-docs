@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { VocabularyItem } from "@/lib/types";
 import { ProgressBar } from "./ProgressBar";
+import { ConfettiBurst } from "./ConfettiBurst";
+import { playCorrectSound } from "@/lib/sounds";
 
 interface QuizQuestion {
   targetItem: VocabularyItem;
@@ -118,6 +120,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
       const isCorrect = index === currentQ.correctIndex;
       if (isCorrect) {
         setScore((prev) => prev + 1);
+        playCorrectSound();
       }
 
       setHistory((prev) => [
@@ -453,6 +456,11 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   !isAnswered ? "active:scale-[0.98] cursor-pointer" : "cursor-default"
                 }`}
               >
+                {/* Small confetti burst when the user picks the correct answer */}
+                {isAnswered && isSelected && isCorrect && (
+                  <ConfettiBurst key={`confetti-${currentIndex}`} />
+                )}
+
                 {/* Number Badge [1], [2], [3], [4] */}
                 <span
                   className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg font-mono font-semibold text-xs flex items-center justify-center shrink-0 transition-colors ${badgeStyles}`}
