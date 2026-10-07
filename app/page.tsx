@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Sparkles, RefreshCw, AlertCircle, BookOpen, Sun, Moon, GraduationCap } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, RefreshCw, AlertCircle, BookOpen, Sun, Moon, GraduationCap, Gamepad2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { VocabularyItem, VocabApiResponse } from "@/lib/types";
 import { DaySelector } from "@/components/DaySelector";
@@ -208,8 +209,24 @@ export default function Home() {
           <SearchBar items={items} onSelectWord={handleSelectWordFromSearch} />
         </div>
 
-        {/* Top-Right Action Buttons: Test Vocabulary, Reload Data & Theme Toggle */}
+        {/* Top-Right Action Buttons: Vocab Runner Game, Test Vocabulary, Reload Data & Theme Toggle */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* 3D Vocab Runner Game Button */}
+          {viewMode === "main" && (
+            <Link
+              href="/runner"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-[#132b37] hover:bg-[#1a3d4e] text-[#8df0c8] border border-[#8df0c8]/40 shadow-subtle hover:shadow transition-all active:scale-95 text-xs font-semibold shrink-0"
+              title="Chơi game 3D Vocab Runner"
+            >
+              <Gamepad2 className="w-3.5 h-3.5 text-[#8df0c8] shrink-0" />
+              <span className="hidden sm:inline">Vocab Runner</span>
+              <span className="sm:hidden">Game</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#8df0c8]/20 text-[#8df0c8] font-mono">
+                3D
+              </span>
+            </Link>
+          )}
+
           {/* Vocabulary Test Button */}
           {viewMode === "main" && items.length > 0 && (
             <button

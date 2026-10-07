@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#132b37">
+<title>Vocab Runner — Drive your vocabulary</title>
+<style>
+:root {
+color-scheme: dark;
+--ink: #132b37;
+--muted: #b7cdd6;
+--mint: #8df0c8;
+--orange: #ffbd73;
+--red: #ff756d;
+--panel: rgba(15, 35, 46, .93);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+width: 100%;
+height: 100%;
+margin: 0;
+overflow: hidden;
+overscroll-behavior: none;
+font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+background: #a6dce8;
+color: #fff;
+}
+
+button { font: inherit; }
+button:focus-visible { outline: 3px solid #fff; outline-offset: 5px; }
+[hidden] { display: none !important; }
+
+#world {
+position: fixed;
+inset: 0;
+background: linear-gradient(#7fc5e3 0%, #d9eee9 57%, #acd2bd 100%);
+touch-action: none;
+}
+
+#world canvas { display: block; width: 100%; height: 100%; }
+
+#vignette {
+position: fixed;
+inset: 0;
+pointer-events: none;
+box-shadow: inset 0 0 130px rgba(17, 40, 47, .12);
+}
+
+#hud {
+position: fixed;
+inset: 0;
+pointer-events: none;
+z-index: 5;
+}
+
+.topbar {
+display: grid;
+grid-template-columns: 155px minmax(0, 580px) 155px;
+align-items: start;
+justify-content: space-between;
+gap: 20px;
+padding: max(24px, env(safe-area-inset-top)) 28px 0;
+}
+
+.stat {
+background: var(--panel);
+border: 1px solid rgba(255, 255, 255, .12);
+border-radius: 14px;
+padding: 15px 18px;
+box-shadow: 0 8px 25px rgba(12, 35, 45, .09);
+}
+
+.stat-label, .eyebrow {
+font-size: 11px;
+font-weight: 800;
+letter-spacing: .16em;
+text-transform: uppercase;
+color: var(--muted);
+}
+
+.stat-value {
+font-size: 30px;
+font-weight: 850;
+line-height: 1.2;
+font-variant-numeric: tabular-nums;
+letter-spacing: -.04em;
+margin-top: 4px;
+}
+
+.distance { font-size: 12px; color: var(--muted); margin-top: 7px; }
+#streak-value { color: var(--mint); }
+#streak-stat { text-align: right; }
+
+#question-panel {
+padding: 18px 22px 17px;
+border-radius: 16px;
+background: var(--panel);
+border: 1px solid rgba(255, 255, 255, .14);
+box-shadow: 0 12px 30px rgba(12, 35, 45, .12);
+}
+
+.question-heading {
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 12px;
+margin-bottom: 8px;
+}
+
+#question-number { color: var(--mint); font-size: 11px; font-weight: 750; white-space: nowrap; }
+
+#meaning {
+margin: 0;
+font-size: clamp(17px, 2vw, 24px);
+font-weight: 750;
+line-height: 1.3;
+letter-spacing: -.025em;
+min-height: 32px;
+}
+
+.timer-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.timer-track { flex: 1; height: 6px; border-radius: 6px; background: #39505b; overflow: hidden; }
+
+#timer-fill {
+width: 100%;
+height: 100%;
+background: var(--mint);
+transform-origin: left;
+border-radius: inherit;
+}
+
+#timer-value {
+min-width: 42px;
+text-align: right;
+font-size: 14px;
+font-weight: 800;
+font-variant-numeric: tabular-nums;
+}
+
+#question-panel.urgent #timer-fill { background: var(--red); }
+#question-panel.urgent #timer-value { color: #ff9b94; }
+
+#lane-labels {
+position: fixed;
+inset: 0;
+pointer-events: none;
+z-index: 4;
+}
+
+.lane-label {
+position: absolute;
+left: 0;
+top: 0;
+width: 136px;
+text-align: center;
+transform: translate(-50%, -100%);
+will-change: left, top;
+}
+
+.answer-card {
+border: 1px solid rgba(255, 255, 255, .42);
+background: rgba(19, 43, 55, .95);
+box-shadow: 0 5px 15px rgba(7, 26, 34, .2);
+border-radius: 10px;
+padding: 8px 8px 10px;
+transition: background .15s, border-color .15s;
+}
+
+.lane-number {
+display: block;
+margin-bottom: 4px;
+font-size: 10px;
+letter-spacing: .12em;
+font-weight: 800;
+color: #b7cdd6;
+}
+
+.answer-word {
+display: block;
+font-size: 14px;
+font-weight: 800;
+letter-spacing: -.02em;
+overflow-wrap: anywhere;
+}
+
+.lane-label.selected .answer-card {
+background: #234e51;
+border: 2px solid var(--mint);
+padding: 7px 7px 9px;
+box-shadow: 0 0 0 3px rgba(141, 240, 200, .14);
+}
+
+.lane-label.selected .lane-number { color: var(--mint); }
+
+.label-arrow {
+margin: 0 auto;
+width: 0;
+height: 0;
+border-left: 7px solid transparent;
+border-right: 7px solid transparent;
+border-top: 9px solid #173542;
+}
+
+.lane-label.selected .label-arrow { border-top-color: var(--mint); }
+
+#toast {
+position: absolute;
+top: 33%;
+left: 50%;
+transform: translate(-50%, 10px);
+opacity: 0;
+text-align: center;
+transition: opacity .15s, transform .2s;
+text-shadow: 0 3px 12px rgba(0, 0, 0, .25);
+white-space: nowrap;
+}
+
+#toast.visible { opacity: 1; transform: translate(-50%, 0); }
+#toast-title { font-size: clamp(28px, 5vw, 48px); font-weight: 900; letter-spacing: -.04em; color: #eafff5; }
+#toast-score { font-size: 24px; font-weight: 800; color: var(--mint); }
+
+.bottom-hud {
+position: absolute;
+left: 24px;
+right: 24px;
+bottom: max(22px, env(safe-area-inset-bottom));
+display: flex;
+justify-content: space-between;
+align-items: end;
+gap: 12px;
+}
+
+.route-badge {
+border: 1px solid rgba(255, 255, 255, .18);
+background: var(--panel);
+border-radius: 10px;
+padding: 10px 14px;
+font-size: 12px;
+font-weight: 700;
+}
+
+.route-badge small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .12em; margin-bottom: 3px; }
+
+#controls {
+display: flex;
+align-items: center;
+gap: 12px;
+pointer-events: auto;
+}
+
+.steer-button {
+width: 56px;
+height: 50px;
+border-radius: 12px;
+border: 1px solid rgba(255, 255, 255, .28);
+background: rgba(15, 35, 46, .91);
+color: white;
+font-size: 25px;
+font-weight: 800;
+cursor: pointer;
+touch-action: manipulation;
+user-select: none;
+}
+
+.steer-button:active { background: #37605e; transform: translateY(2px); }
+.control-hint { font-size: 11px; line-height: 1.5; text-align: center; font-weight: 700; color: white; text-shadow: 0 1px 5px #132b37; }
+
+#sound-toggle {
+pointer-events: auto;
+height: 44px;
+min-width: 44px;
+border-radius: 10px;
+background: var(--panel);
+color: white;
+border: 1px solid rgba(255,255,255,.2);
+cursor: pointer;
+font-size: 12px;
+padding: 0 12px;
+}
+
+.overlay {
+position: fixed;
+inset: 0;
+z-index: 20;
+display: flex;
+justify-content: center;
+align-items: center;
+padding: 24px;
+overflow-y: auto;
+background: rgba(11, 34, 42, .28);
+backdrop-filter: blur(5px);
+}
+
+.menu-card {
+width: min(100%, 460px);
+border: 1px solid rgba(255,255,255,.19);
+border-radius: 24px;
+background: rgba(16, 37, 49, .97);
+padding: 36px;
+box-shadow: 0 25px 85px rgba(5, 24, 33, .28);
+text-align: left;
+}
+
+.brand-line { display: flex; gap: 10px; align-items: center; margin-bottom: 24px; }
+.brand-symbol {
+width: 30px;
+height: 30px;
+border-radius: 8px;
+background: var(--mint);
+color: #163e37;
+display: grid;
+place-items: center;
+font-weight: 900;
+font-size: 20px;
+}
+
+.brand-line .eyebrow { color: var(--mint); }
+
+h1 {
+font-size: clamp(45px, 8vw, 64px);
+line-height: .98;
+letter-spacing: -.065em;
+margin: 0 0 20px;
+font-weight: 900;
+}
+
+h1 span { color: var(--mint); }
+.menu-description { color: #c4d8df; font-size: 17px; line-height: 1.55; margin: 0; }
+
+.instructions {
+display: flex;
+gap: 12px;
+align-items: center;
+border-top: 1px solid #39505b;
+border-bottom: 1px solid #39505b;
+padding: 18px 0;
+margin: 24px 0;
+}
+
+.keys { display: flex; gap: 5px; flex-shrink: 0; }
+kbd { min-width: 31px; padding: 6px; border: 1px solid #56717e; border-bottom-width: 3px; border-radius: 6px; font: 700 15px system-ui; text-align: center; background: #29434e; }
+.instructions p { font-size: 13px; color: #c4d8df; line-height: 1.55; margin: 0; }
+
+.primary-button {
+width: 100%;
+padding: 16px 20px;
+border: 0;
+border-radius: 12px;
+background: var(--mint);
+color: #11372d;
+font-size: 15px;
+font-weight: 900;
+letter-spacing: .05em;
+cursor: pointer;
+transition: background .15s, transform .15s;
+}
+
+.primary-button:hover { background: #b4ffdd; transform: translateY(-1px); }
+.primary-button:disabled { opacity: .55; cursor: wait; transform: none; }
+.menu-footer { margin: 16px 0 0; color: #a9c0cc; font-size: 12px; text-align: center; }
+.menu-footer strong { color: #e5f1f5; }
+
+#game-over h2 { font-size: 43px; font-weight: 900; letter-spacing: -.05em; margin: 8px 0; }
+#crash-reason { color: #c4d8df; line-height: 1.5; font-size: 14px; margin: 0 0 22px; }
+
+.answer-recap {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 12px;
+border: 1px solid #3b5360;
+background: #1c3745;
+padding: 16px;
+border-radius: 12px;
+}
+
+.answer-recap .eyebrow { font-size: 10px; letter-spacing: .07em; }
+.answer-recap strong { display: block; margin-top: 6px; font-size: 16px; overflow-wrap: anywhere; }
+#correct-recap { color: var(--mint); }
+#chosen-recap { color: #ffaaa2; }
+
+.run-recap { display: flex; justify-content: space-between; gap: 10px; margin: 24px 0; }
+.run-recap strong { display: block; font-size: 27px; margin-top: 5px; letter-spacing: -.04em; }
+.run-recap .eyebrow { font-size: 10px; }
+
+#flash { position: fixed; inset: 0; pointer-events: none; z-index: 15; opacity: 0; background: #ff756d; }
+#load-error { margin-top: 16px; color: #ffbbb1; font-size: 14px; line-height: 1.5; }
+#live-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+@media (max-width: 700px) {
+.topbar { grid-template-columns: 1fr 1fr; gap: 10px; padding: max(12px, env(safe-area-inset-top)) 12px 0; }
+.stat { padding: 9px 12px; border-radius: 11px; }
+.stat-value { font-size: 23px; margin-top: 1px; }
+.stat-label { font-size: 9px; }
+.distance { font-size: 11px; margin-top: 2px; }
+#streak-stat { grid-column: 2; grid-row: 1; }
+#question-panel { grid-column: 1 / -1; grid-row: 2; padding: 12px 15px; border-radius: 12px; }
+.question-heading { margin-bottom: 6px; }
+#meaning { font-size: 18px; min-height: 0; }
+.timer-row { margin-top: 10px; }
+.lane-label { width: 84px; }
+.answer-card { padding: 7px 3px 8px; border-radius: 8px; }
+.lane-label.selected .answer-card { padding: 6px 2px 7px; }
+.answer-word { font-size: 12px; }
+.lane-number { font-size: 9px; }
+.bottom-hud { left: 12px; right: 12px; bottom: max(14px, env(safe-area-inset-bottom)); }
+.route-badge { display: none; }
+.control-hint { font-size: 10px; }
+#controls { gap: 8px; }
+.steer-button { width: 50px; height: 48px; }
+.menu-card { padding: 28px; border-radius: 20px; }
+.overlay { padding: 18px; }
+.brand-line { margin-bottom: 20px; }
+.menu-description { font-size: 16px; }
+#toast { top: 35%; }
+}
+
+@media (max-height: 580px) {
+.menu-card { padding: 22px 28px; }
+.brand-line { margin-bottom: 12px; }
+h1 { font-size: 42px; margin-bottom: 12px; }
+.instructions { margin: 14px 0; padding: 12px 0; }
+.menu-description { font-size: 14px; }
+.primary-button { padding: 12px; }
+.topbar { padding-top: 10px; }
+#question-panel { padding: 10px 16px; }
+#meaning { font-size: 17px; min-height: 0; }
+.timer-row { margin-top: 8px; }
+.run-recap { margin: 14px 0; }
+#game-over h2 { font-size: 34px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+*, *::before, *::after { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<main id="world" aria-label="Three-dimensional four-lane driving game"></main>
+<div id="vignette"></div>
+<div id="flash"></div>
+
+<div id="hud" hidden>
+<div class="topbar">
+<section class="stat">
+<div class="stat-label">Score</div>
+<div id="score-value" class="stat-value">0000</div>
+<div class="distance"><span id="distance-value">0</span> m traveled</div>
+</section>
+
+<section id="question-panel">
+<div class="question-heading">
+<span>Find the word</span>
+<span id="question-number">GATE 01</span>
+</div>
+<h2 id="meaning">Choose the word that matches the definition.</h2>
+<div class="timer-row">
+<div class="timer-track" role="progressbar" aria-label="Time remaining" aria-valuemin="0" aria-valuemax="5" aria-valuenow="5">
+<div id="timer-fill"></div>
+</div>
+<div id="timer-value">5.0s</div>
+</div>
+</section>
+
+<section id="streak-stat" class="stat">
+<div class="stat-label">Streak</div>
+<div id="streak-value" class="stat-value">×0</div>
+<div class="distance">Best <span id="best-value">0</span></div>
+</section>
+</div>
+
+<div id="toast">
+<div id="toast-title">✓ CORRECT!</div>
+<div id="toast-score">+100</div>
+</div>
+
+<div class="bottom-hud">
+<div class="route-badge"><small>ENDLESS HIGHWAY</small><span id="speed-value">72</span> km/h</div>
+<div id="controls">
+<button id="left-button" class="steer-button" aria-label="Move one lane left">←</button>
+<div class="control-hint">A / D · ← / →<br>SWIPE TO STEER</div>
+<button id="right-button" class="steer-button" aria-label="Move one lane right">→</button>
+</div>
+<button id="sound-toggle" aria-label="Enable sound" aria-pressed="false">Sound off</button>
+</div>
+</div>
+
+<div id="lane-labels" hidden>
+<div class="lane-label"><div class="answer-card"><span class="lane-number">LANE 1</span><span class="answer-word"></span></div><div class="label-arrow"></div></div>
+<div class="lane-label"><div class="answer-card"><span class="lane-number">LANE 2</span><span class="answer-word"></span></div><div class="label-arrow"></div></div>
+<div class="lane-label"><div class="answer-card"><span class="lane-number">LANE 3</span><span class="answer-word"></span></div><div class="label-arrow"></div></div>
+<div class="lane-label"><div class="answer-card"><span class="lane-number">LANE 4</span><span class="answer-word"></span></div><div class="label-arrow"></div></div>
+</div>
+
+<section id="start-screen" class="overlay" aria-labelledby="game-title">
+<div class="menu-card">
+<div class="brand-line"><span class="brand-symbol">↗</span><span class="eyebrow">A little drive. A sharper mind.</span></div>
+<h1 id="game-title">VOCAB<br><span>RUNNER.</span></h1>
+<p class="menu-description">Four lanes. One right word. Read the definition and steer into the correct answer before the barricade arrives.</p>
+<div class="instructions">
+<div class="keys"><kbd>←</kbd><kbd>→</kbd></div>
+<p>Arrow keys or <strong>A / D</strong> to switch lanes.<br>On mobile, swipe or use the arrows.<br><strong>Make a lane move for every question.</strong></p>
+</div>
+<button id="start-button" class="primary-button" disabled>LOADING HIGHWAY…</button>
+<p class="menu-footer"><strong>5 seconds</strong> per gate · <strong>+100</strong> per correct answer</p>
+<p id="load-error" role="alert" hidden></p>
+</div>
+</section>
+
+<section id="game-over" class="overlay" aria-labelledby="game-over-title" hidden>
+<div class="menu-card">
+<div class="brand-line"><span class="brand-symbol">!</span><span class="eyebrow">End of the road</span></div>
+<h2 id="game-over-title">CRASH!</h2>
+<p id="crash-reason">You drove into the wrong answer.</p>
+<div class="answer-recap">
+<div><span class="eyebrow">Correct answer</span><strong id="correct-recap"></strong></div>
+<div><span class="eyebrow">Your lane</span><strong id="chosen-recap"></strong></div>
+</div>
+<div class="run-recap">
+<div><span class="eyebrow">Score</span><strong id="final-score">0</strong></div>
+<div><span class="eyebrow">Distance</span><strong id="final-distance">0 m</strong></div>
+<div><span class="eyebrow">Best streak</span><strong id="final-streak">×0</strong></div>
+</div>
+<button id="restart-button" class="primary-button">PLAY AGAIN →</button>
+<p class="menu-footer">New road. Fresh start. You've got this.</p>
+</div>
+</section>
+
+<div id="live-status" aria-live="polite"></div>
+
+<script>
+const threeScript = document.createElement("script");
+threeScript.src = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js";
+threeScript.onload = initializeGame;
+threeScript.onerror = () => showLoadError("Three.js could not load. Connect to the internet, then reload this file.");
+document.head.appendChild(threeScript);
+
+function showLoadError(message) {
+  const errEl = document.getElementById("load-error");
+  if (errEl) {
+    errEl.hidden = false;
+    errEl.textContent = message;
+  }
+  const btn = document.getElementById("start-button");
+  if (btn) {
+    btn.textContent = "HIGHWAY UNAVAILABLE";
+    btn.disabled = true;
+  }
+}
+
+function initializeGame() {
+  "use strict";
+
+  const CONFIG = {
+    lanes: [-4.5, -1.5, 1.5, 4.5],
+    carZ: 2,
+    roadWidth: 12,
+    recycleLength: 240,
+    reactionTime: 5,
+    baseSpeed: 20,
+    maxSpeed: 32,
+    laneSmoothing: 13,
+    successDuration: 0.85,
+    crashDuration: 1.15
+  };
+
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const $ = id => document.getElementById(id);
+  const UI = {
+    hud: $("hud"),
+    labels: $("lane-labels"),
+    labelItems: [...document.querySelectorAll(".lane-label")],
+    start: $("start-screen"),
+    over: $("game-over"),
+    startButton: $("start-button"),
+    meaning: $("meaning"),
+    questionPanel: $("question-panel"),
+    timerFill: $("timer-fill"),
+    timerValue: $("timer-value"),
+    progress: document.querySelector('[role="progressbar"]'),
+    score: $("score-value"),
+    distance: $("distance-value"),
+    streak: $("streak-value"),
+    best: $("best-value"),
+    speed: $("speed-value"),
+    toast: $("toast"),
+    live: $("live-status")
+  };
+
+  const vocabulary = [
+    { word: "acquire", meaning: "To get or obtain something", options: ["acquire", "oppose", "hesitate", "disclose"], correctIndex: 0 },
+    { word: "oppose", meaning: "To disagree with or resist something", options: ["qualify", "oppose", "acquire", "coincide"], correctIndex: 1 },
+    { word: "disclose", meaning: "To reveal information that was secret", options: ["supplement", "revise", "disclose", "hesitate"], correctIndex: 2 },
+    { word: "hesitate", meaning: "To pause because you are uncertain", options: ["disclose", "acquire", "oppose", "hesitate"], correctIndex: 3 },
+    { word: "reputable", meaning: "Known to be honest and reliable", options: ["reputable", "explicit", "revised", "vacant"], correctIndex: 0 },
+    { word: "explicit", meaning: "Stated clearly, leaving no room for doubt", options: ["hesitant", "explicit", "reputable", "outstanding"], correctIndex: 1 },
+    { word: "supplement", meaning: "Something added to improve or complete something", options: ["vacancy", "landlord", "supplement", "headquarters"], correctIndex: 2 },
+    { word: "coincide", meaning: "To happen at the same time", options: ["hesitate", "qualify", "oppose", "coincide"], correctIndex: 3 },
+    { word: "vacancy", meaning: "An unoccupied position or available room", options: ["vacancy", "expenditure", "landlord", "supplement"], correctIndex: 0 },
+    { word: "expenditure", meaning: "The act or amount of spending money", options: ["headquarters", "expenditure", "vacancy", "landlord"], correctIndex: 1 },
+    { word: "outstanding", meaning: "Exceptionally good or impressive", options: ["explicit", "revised", "outstanding", "hesitant"], correctIndex: 2 },
+    { word: "qualify", meaning: "To meet the requirements for something", options: ["coincide", "disclose", "hesitate", "qualify"], correctIndex: 3 },
+    { word: "revised", meaning: "Changed or updated to improve it", options: ["revised", "reputable", "explicit", "outstanding"], correctIndex: 0 },
+    { word: "landlord", meaning: "Someone who rents property to others", options: ["vacancy", "landlord", "headquarters", "expenditure"], correctIndex: 1 },
+    { word: "headquarters", meaning: "The main office of an organization", options: ["supplement", "vacancy", "headquarters", "landlord"], correctIndex: 2 }
+  ];
+
+  const STATES = Object.freeze({
+    START: "START",
+    PLAYING: "PLAYING",
+    SUCCESS: "SUCCESS",
+    CRASH: "CRASH",
+    GAME_OVER: "GAME_OVER"
+  });
+
+  let state = STATES.START;
+  let currentLane = 1;
+  let score = 0;
+  let distance = 0;
+  let streak = 0;
+  let longestStreak = 0;
+  let bestScore = 0;
+  let speed = CONFIG.baseSpeed;
+  let gateNumber = 0;
+  let question = null;
+  let elapsed = 0;
+  let stateElapsed = 0;
+  let movedThisQuestion = false;
+  let questionBag = [];
+  let lastWord = "";
+  let bounce = 0;
+  let shake = 0;
+  let flash = 0;
+  let lastTickSecond = -1;
+  let ready = false;
+  let previousTime = performance.now();
+  let animationTime = 0;
+  let viewportWidth = innerWidth;
+  let viewportHeight = innerHeight;
+
+  try { bestScore = Number(localStorage.getItem("vocabRunnerBest")) || 0; } catch (_) {}
+  if (UI.best) UI.best.textContent = bestScore;
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+  } catch (_) {
+    showLoadError("This browser could not start WebGL. Try a modern browser with hardware acceleration enabled.");
+    return;
+  }
+
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.7));
+  renderer.setSize(viewportWidth, viewportHeight);
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  $("world").appendChild(renderer.domElement);
+
+  renderer.domElement.addEventListener("webglcontextlost", event => {
+    event.preventDefault();
+    UI.hud.hidden = true;
+    UI.labels.hidden = true;
+    UI.over.hidden = true;
+    UI.start.hidden = false;
+    ready = false;
+    state = STATES.START;
+    showLoadError("The graphics connection was lost. Reload the page to start a fresh run.");
+  });
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0xc6e6e3, 55, 205);
+
+  const camera = new THREE.PerspectiveCamera(55, viewportWidth / viewportHeight, 0.1, 330);
+  const cameraTarget = new THREE.Vector3();
+  const projectionPoint = new THREE.Vector3();
+  let cameraBaseY = 8;
+  let cameraBaseZ = 15;
+
+  const ambient = new THREE.HemisphereLight(0xd9f5ff, 0x6c8d55, 2.3);
+  scene.add(ambient);
+
+  const sunlight = new THREE.DirectionalLight(0xffefcc, 2.7);
+  sunlight.position.set(-20, 36, 12);
+  sunlight.castShadow = true;
+  sunlight.shadow.mapSize.set(1024, 1024);
+  sunlight.shadow.camera.left = -22;
+  sunlight.shadow.camera.right = 22;
+  sunlight.shadow.camera.top = 26;
+  sunlight.shadow.camera.bottom = -36;
+  sunlight.shadow.camera.near = 1;
+  sunlight.shadow.camera.far = 100;
+  sunlight.shadow.normalBias = 0.04;
+  sunlight.target.position.set(0, 0, -12);
+  scene.add(sunlight, sunlight.target);
+
+  const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+  const sphereGeometry = new THREE.IcosahedronGeometry(1, 0);
+  const coneGeometry = new THREE.ConeGeometry(1, 1, 6);
+  const cylinderGeometry = new THREE.CylinderGeometry(1, 1, 1, 8);
+  const materials = new Map();
+
+  function material(color, roughness = .85) {
+    const key = `${color}-${roughness}`;
+    if (!materials.has(key)) {
+      materials.set(key, new THREE.MeshStandardMaterial({ color, roughness, flatShading: true }));
+    }
+    return materials.get(key);
+  }
+
+  function box(parent, x, y, z, width, height, depth, color, cast = false) {
+    const mesh = new THREE.Mesh(boxGeometry, material(color));
+    mesh.position.set(x, y, z);
+    mesh.scale.set(width, height, depth);
+    mesh.castShadow = cast;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function lowPoly(parent, geometry, x, y, z, sx, sy, sz, color) {
+    const mesh = new THREE.Mesh(geometry, material(color));
+    mesh.position.set(x, y, z);
+    mesh.scale.set(sx, sy, sz);
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function random(min, max) { return min + Math.random() * (max - min); }
+
+  // CAR
+  const car = new THREE.Group();
+  const carModel = new THREE.Group();
+  car.add(carModel);
+  car.position.set(CONFIG.lanes[currentLane], .04, CONFIG.carZ);
+  scene.add(car);
+
+  box(carModel, 0, .55, 0, 1.52, .54, 2.55, 0xf37365, true);
+  box(carModel, 0, .81, -.69, 1.45, .17, .96, 0xff967c, true);
+  box(carModel, 0, .39, 1.16, 1.55, .19, .22, 0x263944);
+  box(carModel, 0, .39, -1.23, 1.55, .16, .2, 0x263944);
+  box(carModel, 0, 1.02, .16, 1.27, .54, 1.19, 0xf9b59b, true);
+  box(carModel, 0, 1.15, -.47, 1.14, .34, .045, 0x264e62);
+  box(carModel, 0, 1.15, .77, 1.14, .31, .045, 0x31596a);
+  box(carModel, -.645, 1.14, .15, .025, .31, 1.04, 0x31596a);
+  box(carModel, .645, 1.14, .15, .025, .31, 1.04, 0x31596a);
+  box(carModel, 0, 1.34, .16, 1.35, .13, 1.32, 0xff9279, true);
+  box(carModel, 0, .835, -.72, .22, .018, .95, 0xffd7b4);
+  box(carModel, -.48, .6, -1.292, .34, .16, .035, 0xfff4bd);
+  box(carModel, .48, .6, -1.292, .34, .16, .035, 0xfff4bd);
+  box(carModel, -.52, .63, 1.292, .25, .13, .035, 0xff353e);
+  box(carModel, .52, .63, 1.292, .25, .13, .035, 0xff353e);
+  box(carModel, -.82, .95, -.13, .18, .1, .23, 0xf37365);
+  box(carModel, .82, .95, -.13, .18, .1, .23, 0xf37365);
+
+  const wheels = [];
+  const wheelGeometry = new THREE.CylinderGeometry(.32, .32, .2, 12);
+  const hubGeometry = new THREE.CylinderGeometry(.16, .16, .215, 8);
+
+  for (const x of [-.79, .79]) {
+    for (const z of [-.78, .79]) {
+      const wheel = new THREE.Group();
+      wheel.position.set(x, .33, z);
+      const tire = new THREE.Mesh(wheelGeometry, material(0x202b35));
+      tire.rotation.z = Math.PI / 2;
+      tire.castShadow = true;
+      const hub = new THREE.Mesh(hubGeometry, material(0xb9d1d8, .45));
+      hub.rotation.z = Math.PI / 2;
+      wheel.add(tire, hub);
+      carModel.add(wheel);
+      wheels.push(wheel);
+    }
+  }
+
+  const carShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 24),
+    new THREE.MeshBasicMaterial({ color: 0x162d30, transparent: true, opacity: .22, depthWrite: false })
+  );
+  carShadow.rotation.x = -Math.PI / 2;
+  carShadow.scale.set(.92, 1.62, 1);
+  carShadow.position.y = .025;
+  car.add(carShadow);
+
+  // ROAD
+  const ground = box(scene, 0, -.2, -105, 420, .3, 310, 0x8abf87);
+  ground.receiveShadow = true;
+  box(scene, 0, -.035, -104, CONFIG.roadWidth, .11, 280, 0x35434b);
+  box(scene, -6.19, .01, -104, .3, .13, 280, 0xd8dacd);
+  box(scene, 6.19, .01, -104, .3, .13, 280, 0xd8dacd);
+  box(scene, -5.84, .028, -104, .1, .012, 280, 0xffefc4);
+  box(scene, 5.84, .028, -104, .1, .012, 280, 0xffefc4);
+
+  const laneDashes = [];
+  for (let z = -226; z < 24; z += 7) {
+    for (const x of [-3, 0, 3]) {
+      laneDashes.push(box(scene, x, .03, z, .09, .018, 3.25, 0xe7eee7));
+    }
+  }
+
+  const roadsidePosts = [];
+  for (let z = -220; z < 20; z += 12) {
+    for (const side of [-1, 1]) {
+      const post = new THREE.Group();
+      post.position.set(side * 6.85, 0, z);
+      box(post, 0, .43, 0, .11, .86, .14, 0xe9eee5);
+      box(post, 0, .68, -.082, .12, .18, .028, 0xffa563);
+      scene.add(post);
+      roadsidePosts.push(post);
+    }
+  }
+
+  const laneGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.45, 7),
+    new THREE.MeshBasicMaterial({ color: 0x8df0c8, transparent: true, opacity: .12, depthWrite: false })
+  );
+  laneGlow.rotation.x = -Math.PI / 2;
+  laneGlow.position.set(CONFIG.lanes[currentLane], .045, -.2);
+  scene.add(laneGlow);
+
+  // ENVIRONMENT
+  const scenery = [];
+  const treeColors = [0x3d9070, 0x5aaa77, 0x76b67b, 0x3c8272];
+  const buildingColors = [0xe9c5a3, 0xd1d7cf, 0x98bcc2, 0xe9ad96, 0xb5bfce];
+
+  function createTree() {
+    const group = new THREE.Group();
+    const height = random(2.5, 4.5);
+    box(group, 0, height * .23, 0, .24, height * .46, .24, 0x806854);
+    const color = treeColors[Math.floor(random(0, treeColors.length))];
+    lowPoly(group, coneGeometry, 0, height * .64, 0, 1.22, height * .78, 1.22, color);
+    lowPoly(group, coneGeometry, 0, height * .88, 0, .92, height * .55, .92, color);
+    return group;
+  }
+
+  function createBuilding() {
+    const group = new THREE.Group();
+    const width = random(3.2, 5.5);
+    const height = random(3, 9);
+    const depth = random(3.5, 6);
+    const color = buildingColors[Math.floor(random(0, buildingColors.length))];
+    box(group, 0, height / 2, 0, width, height, depth, color);
+    box(group, 0, height + .13, 0, width + .2, .26, depth + .2, 0x6b8790);
+    for (let y = 1.3; y < height - .4; y += 1.55) {
+      for (const x of [-width * .27, width * .27]) {
+        box(group, x, y, depth / 2 + .012, .63, .7, .04, 0x526e7c);
+      }
+    }
+    return group;
+  }
+
+  function createBush() {
+    const group = new THREE.Group();
+    lowPoly(group, sphereGeometry, 0, .48, 0, 1.1, .65, .8, 0x609964);
+    lowPoly(group, sphereGeometry, .55, .35, .1, .7, .5, .7, 0x75af72);
+    return group;
+  }
+
+  function createStreetLight(side) {
+    const group = new THREE.Group();
+    box(group, 0, 2.5, 0, .12, 5, .12, 0x557780);
+    box(group, -side * .65, 4.96, 0, 1.4, .1, .1, 0x557780);
+    box(group, -side * 1.3, 4.91, 0, .58, .12, .3, 0xe0ebe5);
+    return group;
+  }
+
+  function createSign() {
+    const group = new THREE.Group();
+    box(group, 0, 1.05, 0, .1, 2.1, .1, 0x6b8591);
+    box(group, 0, 1.96, 0, 1.3, .72, .12, 0xe9f3db);
+    box(group, 0, 1.96, .07, 1.17, .59, .025, 0x347b72);
+    box(group, -.2, 1.96, .092, .55, .085, .025, 0xd2f5e3);
+    const arrow = box(group, .16, 2.035, .093, .3, .08, .025, 0xd2f5e3);
+    arrow.rotation.z = -.65;
+    return group;
+  }
+
+  for (let i = 0; i < 54; i++) {
+    const side = i % 2 ? 1 : -1;
+    const type = i % 9;
+    let object;
+    let offset;
+
+    if (type === 0 || type === 5) {
+      object = createBuilding();
+      offset = random(16, 29);
+    } else if (type === 3) {
+      object = createStreetLight(side);
+      offset = 8;
+    } else if (type === 6) {
+      object = createBush();
+      offset = random(8.5, 13);
+    } else if (type === 8) {
+      object = createSign();
+      offset = 8.5;
+    } else {
+      object = createTree();
+      offset = random(10, 21);
+    }
+
+    object.position.set(side * offset, 0, -220 + (i / 54) * 240 + random(-3, 3));
+    object.userData.side = side;
+    object.userData.type = type;
+    scene.add(object);
+    scenery.push(object);
+  }
+
+  for (let i = 0; i < 12; i++) {
+    const mountain = lowPoly(scene, coneGeometry, -115 + i * 21, 9, -225 - random(0, 20), random(17, 27), random(20, 36), 20, i % 2 ? 0x93bdb9 : 0xabcac2);
+    mountain.rotation.y = random(0, Math.PI);
+  }
+
+  const clouds = [];
+  const cloudMaterial = new THREE.MeshBasicMaterial({ color: 0xf2faf6, transparent: true, opacity: .78 });
+  for (let i = 0; i < 9; i++) {
+    const cloud = new THREE.Group();
+    cloud.position.set(random(-85, 85), random(20, 33), random(-200, -60));
+    for (let j = 0; j < 3; j++) {
+      const puff = new THREE.Mesh(sphereGeometry, cloudMaterial);
+      puff.position.set(j * 3.7, Math.sin(j) * 1.1, 0);
+      puff.scale.set(4.2, 1.9, 2.3);
+      cloud.add(puff);
+    }
+    scene.add(cloud);
+    clouds.push(cloud);
+  }
+
+  // OBSTACLE
+  const obstacle = new THREE.Group();
+  const barriers = [];
+  const gatePads = [];
+
+  for (let i = 0; i < 4; i++) {
+    const barrier = new THREE.Group();
+    barrier.position.x = CONFIG.lanes[i];
+    box(barrier, -1.14, .59, 0, .15, 1.18, .2, 0x465560);
+    box(barrier, 1.14, .59, 0, .15, 1.18, .2, 0x465560);
+    box(barrier, -1.14, .09, 0, .5, .18, .58, 0x465560);
+    box(barrier, 1.14, .09, 0, .5, .18, .58, 0x465560);
+    box(barrier, 0, .93, 0, 2.83, .58, .25, 0xffab5a, true);
+    box(barrier, 0, .91, .137, 2.78, .05, .035, 0xffd49b);
+
+    for (const x of [-.94, -.31, .32, .95]) {
+      const stripe = box(barrier, x, .94, .15, .25, .54, .02, 0x4e4540);
+      stripe.rotation.z = -.42;
+    }
+
+    for (const x of [-1.16, 1.16]) {
+      lowPoly(barrier, sphereGeometry, x, 1.38, 0, .11, .13, .11, 0xffdd7f);
+    }
+
+    obstacle.add(barrier);
+    barriers.push(barrier);
+
+    const pad = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.8, 2.4),
+      new THREE.MeshBasicMaterial({ color: 0xffbb72, transparent: true, opacity: .12, depthWrite: false })
+    );
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(CONFIG.lanes[i], .05, -.15);
+    obstacle.add(pad);
+    gatePads.push(pad);
+  }
+
+  obstacle.visible = false;
+  scene.add(obstacle);
+
+  const particleColors = [0x8df0c8, 0xffe4a7, 0xffffff, 0xff7c54, 0x697b81];
+  const particleMaterials = particleColors.map(color =>
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 })
+  );
+  const particles = [];
+
+  for (let i = 0; i < 66; i++) {
+    const mesh = new THREE.Mesh(sphereGeometry, particleMaterials[i % particleMaterials.length]);
+    mesh.visible = false;
+    scene.add(mesh);
+    particles.push({ mesh, velocity: new THREE.Vector3(), life: 0, duration: 1, size: .1, crash: false });
+  }
+
+  function emitParticles(crashEffect) {
+    let count = 0;
+    const targetCount = reducedMotion ? 14 : crashEffect ? 42 : 26;
+    for (const particle of particles) {
+      if (particle.life > 0) continue;
+      if (count >= targetCount) break;
+      const paletteIndex = crashEffect ? (count % 2 ? 3 : 4) : count % 3;
+      particle.mesh.material = particleMaterials[paletteIndex];
+      particle.mesh.position.set(car.position.x + random(-.6, .6), random(.3, 1.1), CONFIG.carZ);
+      particle.velocity.set(random(-3.7, 3.7), random(2.5, 6), random(-3, 4));
+      particle.duration = random(.65, 1.3);
+      particle.life = particle.duration;
+      particle.size = random(.06, crashEffect ? .2 : .13);
+      particle.crash = crashEffect;
+      particle.mesh.scale.setScalar(particle.size);
+      particle.mesh.visible = true;
+      count++;
+    }
+  }
+
+  function updateParticles(dt) {
+    for (const particle of particles) {
+      if (particle.life <= 0) continue;
+      particle.life -= dt;
+      if (particle.life <= 0) {
+        particle.mesh.visible = false;
+        continue;
+      }
+      particle.velocity.y -= dt * (particle.crash ? 6 : 8);
+      particle.mesh.position.addScaledVector(particle.velocity, dt);
+      particle.mesh.rotation.x += dt * 3;
+      particle.mesh.rotation.z += dt * 4;
+      particle.mesh.scale.setScalar(particle.size * Math.min(1, particle.life * 3));
+    }
+  }
+
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function nextVocabulary() {
+    if (!questionBag.length) {
+      questionBag = shuffle([...vocabulary]);
+      if (questionBag[questionBag.length - 1].word === lastWord) {
+        [questionBag[0], questionBag[questionBag.length - 1]] =
+        [questionBag[questionBag.length - 1], questionBag[0]];
+      }
+    }
+    const entry = questionBag.pop();
+    lastWord = entry.word;
+    return entry;
+  }
+
+  function startQuestion() {
+    const entry = nextVocabulary();
+    const options = shuffle([...entry.options]);
+    question = {
+      ...entry,
+      options,
+      correctIndex: options.indexOf(entry.options[entry.correctIndex])
+    };
+
+    gateNumber++;
+    elapsed = 0;
+    stateElapsed = 0;
+    movedThisQuestion = false;
+    lastTickSecond = -1;
+    state = STATES.PLAYING;
+
+    speed = Math.min(CONFIG.maxSpeed, CONFIG.baseSpeed + streak * .65);
+    obstacle.position.z = CONFIG.carZ - speed * CONFIG.reactionTime;
+    obstacle.visible = true;
+    barriers.forEach(barrier => {
+      barrier.visible = true;
+      barrier.position.y = 0;
+      barrier.rotation.set(0, 0, 0);
+    });
+
+    UI.labels.hidden = false;
+    UI.questionPanel.classList.remove("urgent");
+    UI.meaning.textContent = entry.meaning;
+    $("question-number").textContent = `GATE ${String(gateNumber).padStart(2, "0")}`;
+    UI.labelItems.forEach((label, index) => {
+      label.querySelector(".answer-word").textContent = options[index];
+    });
+    UI.progress.setAttribute("aria-valuemax", CONFIG.reactionTime);
+    updateSelectedLane();
+    updateTimer();
+    UI.live.textContent = `${entry.meaning}. ${options.map((word, index) => `Lane ${index + 1}:${word}`).join(". ")}. Five seconds.`;
+  }
+
+  function steer(direction) {
+    if (!ready || (state !== STATES.PLAYING && state !== STATES.SUCCESS)) return;
+    const nextLane = Math.max(0, Math.min(3, currentLane + direction));
+    if (nextLane === currentLane) return;
+    currentLane = nextLane;
+    if (state === STATES.PLAYING) movedThisQuestion = true;
+    updateSelectedLane();
+    playTone(300 + currentLane * 50, .045, "sine", .025);
+  }
+
+  window.addEventListener("keydown", event => {
+    const key = event.key.toLowerCase();
+    if (["arrowleft", "arrowright", "a", "d"].includes(key)) {
+      event.preventDefault();
+      if (event.repeat) return;
+      steer(key === "arrowleft" || key === "a" ? -1 : 1);
+    }
+  });
+
+  $("left-button").addEventListener("pointerdown", event => {
+    event.preventDefault();
+    steer(-1);
+  });
+
+  $("right-button").addEventListener("pointerdown", event => {
+    event.preventDefault();
+    steer(1);
+  });
+
+  let gesture = null;
+
+  renderer.domElement.addEventListener("pointerdown", event => {
+    if (state !== STATES.PLAYING && state !== STATES.SUCCESS) return;
+    if (gesture) return;
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    renderer.domElement.setPointerCapture(event.pointerId);
+  });
+
+  renderer.domElement.addEventListener("pointermove", event => {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (Math.abs(dx) >= 32 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      steer(dx < 0 ? -1 : 1);
+      gesture.x = event.clientX;
+      gesture.y = event.clientY;
+    }
+  });
+
+  function finishGesture(event) {
+    if (gesture && gesture.id === event.pointerId) gesture = null;
+  }
+
+  renderer.domElement.addEventListener("pointerup", finishGesture);
+  renderer.domElement.addEventListener("pointercancel", finishGesture);
+  renderer.domElement.addEventListener("lostpointercapture", finishGesture);
+
+  let audioContext = null;
+  let soundEnabled = false;
+
+  function unlockAudio() {
+    if (!soundEnabled) return;
+    try {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === "suspended") audioContext.resume().catch(() => {});
+    } catch (_) {}
+  }
+
+  function playTone(frequency, duration, type = "sine", volume = .05, delay = 0) {
+    if (!soundEnabled || !audioContext || audioContext.state !== "running") return;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const time = audioContext.currentTime + delay;
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, time);
+    gain.gain.setValueAtTime(.001, time);
+    gain.gain.exponentialRampToValueAtTime(volume, time + .008);
+    gain.gain.exponentialRampToValueAtTime(.001, time + duration);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(time);
+    oscillator.stop(time + duration + .02);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  }
+
+  $("sound-toggle").addEventListener("click", () => {
+    soundEnabled = !soundEnabled;
+    $("sound-toggle").textContent = soundEnabled ? "Sound on" : "Sound off";
+    $("sound-toggle").setAttribute("aria-pressed", String(soundEnabled));
+    $("sound-toggle").setAttribute("aria-label", soundEnabled ? "Disable sound" : "Enable sound");
+    unlockAudio();
+    playTone(520, .09);
+  });
+
+  function resolveCollision() {
+    if (state !== STATES.PLAYING) return;
+    const settledInLane = Math.abs(car.position.x - CONFIG.lanes[currentLane]) < .65;
+
+    if (!movedThisQuestion) {
+      crash("Time expired without a lane move. Make a steering decision for every gate.");
+    } else if (currentLane !== question.correctIndex) {
+      crash("You drove into the wrong answer.");
+    } else if (!settledInLane) {
+      crash("You were still between lanes when the barricade arrived.");
+    } else {
+      success();
+    }
+  }
+
+  function success() {
+    state = STATES.SUCCESS;
+    stateElapsed = 0;
+    score += 100;
+    streak++;
+    longestStreak = Math.max(longestStreak, streak);
+    bounce = .8;
+    barriers[question.correctIndex].position.y = 3.5;
+    barriers[question.correctIndex].visible = false;
+    UI.labels.hidden = true;
+    UI.toast.classList.add("visible");
+    UI.questionPanel.classList.remove("urgent");
+    UI.meaning.textContent = `✓ ${question.word} — that's the word!`;
+    UI.timerValue.textContent = "PASS";
+    UI.timerFill.style.transform = "scaleX(1)";
+    UI.live.textContent = `Correct! ${question.word}. Plus one hundred points. Streak ${streak}.`;
+    emitParticles(false);
+    playTone(660, .13, "sine", .06);
+    playTone(880, .16, "sine", .05, .09);
+    playTone(1100, .2, "sine", .045, .19);
+    updateStats();
+  }
+
+  function crash(reason) {
+    state = STATES.CRASH;
+    stateElapsed = 0;
+    obstacle.position.z = CONFIG.carZ - .9;
+    UI.labels.hidden = true;
+    UI.toast.classList.remove("visible");
+    UI.questionPanel.classList.remove("urgent");
+    UI.meaning.textContent = "Collision. End of the road.";
+    UI.timerValue.textContent = "0.0s";
+    UI.timerFill.style.transform = "scaleX(0)";
+    UI.progress.setAttribute("aria-valuenow", 0);
+    shake = reducedMotion ? 0 : .4;
+    flash = reducedMotion ? .06 : .3;
+    $("crash-reason").textContent = reason;
+    $("correct-recap").textContent = question.word.toUpperCase();
+    $("chosen-recap").textContent = question.options[currentLane].toUpperCase();
+    $("final-score").textContent = score.toLocaleString();
+    $("final-distance").textContent = `${Math.floor(distance)} m`;
+    $("final-streak").textContent = `×${longestStreak}`;
+
+    if (score > bestScore) {
+      bestScore = score;
+      try { localStorage.setItem("vocabRunnerBest", String(bestScore)); } catch (_) {}
+    }
+
+    if (UI.best) UI.best.textContent = bestScore;
+    UI.live.textContent = `Crash. ${reason} Correct answer: ${question.word}. Score: ${score}.`;
+    emitParticles(true);
+    playTone(100, .4, "sawtooth", .055);
+    playTone(60, .45, "triangle", .065, .1);
+  }
+
+  function showGameOver() {
+    state = STATES.GAME_OVER;
+    UI.over.hidden = false;
+    $("restart-button").focus({ preventScroll: true });
+  }
+
+  function updateSelectedLane() {
+    UI.labelItems.forEach((label, index) => {
+      label.classList.toggle("selected", index === currentLane);
+    });
+  }
+
+  function updateStats() {
+    if (UI.score) UI.score.textContent = String(score).padStart(4, "0");
+    if (UI.distance) UI.distance.textContent = Math.floor(distance).toLocaleString();
+    if (UI.streak) UI.streak.textContent = `×${streak}`;
+    if (UI.speed) UI.speed.textContent = Math.round(speed * 3.6);
+  }
+
+  function updateTimer() {
+    const remaining = Math.max(0, CONFIG.reactionTime - elapsed);
+    UI.timerFill.style.transform = `scaleX(${remaining / CONFIG.reactionTime})`;
+    UI.timerValue.textContent = `${remaining.toFixed(1)}s`;
+    UI.progress.setAttribute("aria-valuenow", remaining.toFixed(1));
+    UI.questionPanel.classList.toggle("urgent", remaining < 1.5);
+
+    const second = Math.ceil(remaining);
+    if (second <= 3 && second > 0 && second !== lastTickSecond) {
+      lastTickSecond = second;
+      playTone(440, .045, "sine", .018);
+    }
+  }
+
+  function positionAnswerLabels() {
+    if (UI.labels.hidden) return;
+    const mobile = viewportWidth <= 700;
+    const edge = mobile ? 6 : 24;
+    const availableWidth = viewportWidth - edge * 2;
+    const cardWidth = Math.min(mobile ? 84 : 136, availableWidth / 4 - 6);
+    const minimumSpacing = cardWidth + 6;
+    const hudBottom = UI.questionPanel.getBoundingClientRect().bottom;
+    const maximumY = Math.max(hudBottom + 80, viewportHeight - 115);
+
+    for (let i = 0; i < 4; i++) {
+      projectionPoint.set(CONFIG.lanes[i], 2.6, obstacle.position.z);
+      projectionPoint.project(camera);
+
+      const projectedX = (projectionPoint.x * .5 + .5) * viewportWidth;
+      const projectedY = (-projectionPoint.y * .5 + .5) * viewportHeight;
+
+      projectionPoint.set(0, 2.6, obstacle.position.z);
+      projectionPoint.project(camera);
+      const centerX = Math.max(
+        edge + minimumSpacing * 1.5 + cardWidth / 2,
+        Math.min(
+          viewportWidth - edge - minimumSpacing * 1.5 - cardWidth / 2,
+          (projectionPoint.x * .5 + .5) * viewportWidth
+        )
+      );
+
+      const projectedSpacing = Math.abs(projectedX - (projectionPoint.x * .5 + .5) * viewportWidth) /
+        Math.max(.5, Math.abs(i - 1.5));
+      const spacing = Math.min(
+        (availableWidth - cardWidth) / 3,
+        Math.max(minimumSpacing, projectedSpacing)
+      );
+
+      const label = UI.labelItems[i];
+      label.style.width = `${cardWidth}px`;
+      label.style.left = `${centerX + (i - 1.5) * spacing}px`;
+      label.style.top = `${Math.max(hudBottom + 79, Math.min(maximumY, projectedY))}px`;
+    }
+  }
+
+  function resize() {
+    viewportWidth = innerWidth;
+    viewportHeight = innerHeight;
+    const portrait = viewportWidth / viewportHeight < .85;
+    cameraBaseY = portrait ? 11.5 : 8;
+    cameraBaseZ = portrait ? 22 : 15;
+    camera.fov = portrait ? 73 : 55;
+    camera.aspect = viewportWidth / viewportHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(viewportWidth, viewportHeight);
+    camera.position.y = cameraBaseY;
+    camera.position.z = cameraBaseZ;
+    camera.lookAt(0, .3, portrait ? -13 : -18);
+  }
+
+  window.addEventListener("resize", resize);
+  resize();
+
+  function startRun() {
+    if (!ready) return;
+    unlockAudio();
+    score = 0;
+    distance = 0;
+    streak = 0;
+    longestStreak = 0;
+    gateNumber = 0;
+    currentLane = 1;
+    speed = CONFIG.baseSpeed;
+    bounce = 0;
+    shake = 0;
+    flash = 0;
+    gesture = null;
+    questionBag = [];
+    stateElapsed = 0;
+    car.position.set(CONFIG.lanes[currentLane], .04, CONFIG.carZ);
+    carModel.rotation.set(0, 0, 0);
+    carModel.position.set(0, 0, 0);
+    laneGlow.position.x = CONFIG.lanes[currentLane];
+    camera.position.x = 0;
+
+    for (const particle of particles) {
+      particle.life = 0;
+      particle.mesh.visible = false;
+    }
+
+    UI.start.hidden = true;
+    UI.over.hidden = true;
+    UI.hud.hidden = false;
+    UI.toast.classList.remove("visible");
+    $("flash").style.opacity = "0";
+    previousTime = performance.now();
+    updateStats();
+    startQuestion();
+    $("start-button").blur();
+    $("restart-button").blur();
+  }
+
+  UI.startButton.addEventListener("click", startRun);
+  $("restart-button").addEventListener("click", startRun);
+
+  function moveEnvironment(amount) {
+    for (const dash of laneDashes) {
+      dash.position.z += amount;
+      if (dash.position.z > 26) dash.position.z -= 252;
+    }
+
+    for (const post of roadsidePosts) {
+      post.position.z += amount;
+      if (post.position.z > 25) post.position.z -= CONFIG.recycleLength;
+    }
+
+    for (const object of scenery) {
+      object.position.z += amount;
+      if (object.position.z > 30) {
+        object.position.z -= CONFIG.recycleLength;
+        const type = object.userData.type;
+        const side = object.userData.side;
+        if (type === 0 || type === 5) {
+          object.position.x = side * random(16, 29);
+          object.scale.set(random(.85, 1.2), random(.8, 1.3), random(.85, 1.2));
+        } else if (![3, 8].includes(type)) {
+          object.position.x = side * random(type === 6 ? 8.5 : 10, type === 6 ? 13 : 21);
+        }
+      }
+    }
+  }
+
+  function updateCar(dt, running) {
+    const targetX = CONFIG.lanes[currentLane];
+
+    if (running) {
+      const difference = targetX - car.position.x;
+      car.position.x += difference * (1 - Math.exp(-CONFIG.laneSmoothing * dt));
+      const targetRoll = reducedMotion ? 0 : -difference * .045;
+      const targetYaw = difference * -.055;
+      carModel.rotation.z = THREE.MathUtils.damp(carModel.rotation.z, targetRoll, 10, dt);
+      carModel.rotation.y = THREE.MathUtils.damp(carModel.rotation.y, targetYaw, 10, dt);
+      carModel.rotation.x = THREE.MathUtils.damp(carModel.rotation.x, 0, 10, dt);
+      bounce = Math.max(0, bounce - dt * 1.8);
+      car.position.y = .04 + (reducedMotion ? 0 : Math.abs(Math.sin(animationTime * 5)) * .017 + Math.sin(bounce * Math.PI) * .16);
+
+      for (const wheel of wheels) wheel.rotation.x -= speed * dt / .32;
+    } else if (state === STATES.CRASH) {
+      const progress = Math.min(1, stateElapsed / CONFIG.crashDuration);
+      carModel.rotation.z = THREE.MathUtils.damp(carModel.rotation.z, -.33, 6, dt);
+      carModel.rotation.y = THREE.MathUtils.damp(carModel.rotation.y, .32, 5, dt);
+      carModel.rotation.x = THREE.MathUtils.damp(carModel.rotation.x, -.12, 5, dt);
+      carModel.position.x = reducedMotion ? 0 : Math.sin(stateElapsed * 55) * .14 * (1 - progress);
+      car.position.y = .04 + Math.sin(progress * Math.PI) * .14;
+      for (const wheel of wheels) wheel.rotation.x -= speed * dt * (1 - progress) / .32;
+    }
+
+    laneGlow.position.x = THREE.MathUtils.damp(laneGlow.position.x, targetX, 9, dt);
+    laneGlow.visible = state === STATES.PLAYING || state === STATES.SUCCESS;
+  }
+
+  function updateCamera(dt) {
+    const horizontalTarget = car.position.x * .15;
+    camera.position.x = THREE.MathUtils.damp(camera.position.x, horizontalTarget, 3, dt);
+    shake = Math.max(0, shake - dt * .55);
+    camera.position.y = cameraBaseY + (shake ? random(-shake, shake) : 0);
+    camera.position.z = cameraBaseZ + (shake ? random(-shake, shake) : 0);
+    cameraTarget.set(car.position.x * .07, .3, viewportWidth / viewportHeight < .85 ? -13 : -18);
+    camera.lookAt(cameraTarget);
+    camera.updateMatrixWorld();
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (!ready) return;
+
+    const realDelta = Math.max(0, (now - previousTime) / 1000);
+    const dt = Math.min(realDelta, .05);
+    previousTime = now;
+    animationTime += dt;
+
+    let running = state === STATES.PLAYING || state === STATES.SUCCESS;
+
+    if (state === STATES.PLAYING) {
+      const previousElapsed = elapsed;
+      elapsed = Math.min(CONFIG.reactionTime, elapsed + realDelta);
+
+      obstacle.position.z = CONFIG.carZ - speed * (CONFIG.reactionTime - elapsed);
+      distance += speed * (elapsed - previousElapsed);
+      moveEnvironment(speed * dt);
+      updateCar(dt, true);
+      updateTimer();
+      updateStats();
+
+      if (elapsed >= CONFIG.reactionTime) resolveCollision();
+    } else if (state === STATES.SUCCESS) {
+      stateElapsed += dt;
+      distance += speed * dt;
+      moveEnvironment(speed * dt);
+      obstacle.position.z += speed * dt;
+      updateCar(dt, true);
+      updateStats();
+
+      if (stateElapsed >= CONFIG.successDuration) {
+        UI.toast.classList.remove("visible");
+        startQuestion();
+      }
+    } else if (state === STATES.CRASH) {
+      stateElapsed += dt;
+      const slowdown = Math.max(0, 1 - stateElapsed / .45);
+      moveEnvironment(speed * dt * slowdown * .18);
+      updateCar(dt, false);
+      if (stateElapsed >= CONFIG.crashDuration) showGameOver();
+    } else if (state === STATES.START) {
+      carModel.rotation.z = 0;
+    }
+
+    for (const cloud of clouds) {
+      cloud.position.x += dt * .17;
+      if (cloud.position.x > 110) cloud.position.x = -110;
+    }
+
+    if (obstacle.visible && running) {
+      gatePads.forEach((pad, index) => {
+        pad.material.opacity = index === currentLane ? .2 : .08;
+      });
+    }
+
+    updateParticles(dt);
+    updateCamera(dt);
+    positionAnswerLabels();
+    flash = Math.max(0, flash - dt * .8);
+    $("flash").style.opacity = String(flash);
+    renderer.render(scene, camera);
+  }
+
+  ready = true;
+  UI.startButton.disabled = false;
+  UI.startButton.textContent = "START GAME →";
+  previousTime = performance.now();
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>
