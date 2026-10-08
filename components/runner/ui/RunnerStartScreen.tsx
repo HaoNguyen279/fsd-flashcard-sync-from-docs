@@ -1,10 +1,19 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface RunnerStartScreenProps {
   vocabularyCount?: number;
 }
 
 export const RunnerStartScreen: React.FC<RunnerStartScreenProps> = ({ vocabularyCount }) => {
+  const [highScore, setHighScore] = useState<number>(0);
+
+  useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem("vocabRunnerBest")) || 0;
+      setHighScore(saved);
+    } catch (_) {}
+  }, []);
+
   return (
     <section id="runner-start-screen" className="runner-start-hud" aria-labelledby="runner-game-title">
       {/* Top minimal arcade title pill */}
@@ -17,6 +26,19 @@ export const RunnerStartScreen: React.FC<RunnerStartScreenProps> = ({ vocabulary
           {vocabularyCount ? (
             <span className="runner-start-count-badge">{vocabularyCount} WORDS</span>
           ) : null}
+        </div>
+      </div>
+
+      {/* Top-right Highest Score HUD */}
+      <div className="runner-start-highscore-container">
+        <div className="runner-start-highscore-badge">
+          <div className="runner-start-highscore-label">
+            <span className="runner-trophy-icon">🏆</span>
+            <span>HIGHEST SCORE</span>
+          </div>
+          <div id="runner-start-best-score" className="runner-start-highscore-value">
+            {highScore.toLocaleString()}
+          </div>
         </div>
       </div>
 

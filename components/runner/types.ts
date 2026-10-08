@@ -6,6 +6,12 @@ export interface RunnerConfig {
   roadWidth: number;
   recycleLength: number;
   reactionTime: number;
+  /** Lowest allowed reaction time (seconds) after difficulty ramps */
+  minReactionTime: number;
+  /** Seconds removed from reaction time per difficulty level */
+  reactionTimeStep: number;
+  /** Streak count required for each difficulty level */
+  streakPerLevel: number;
   baseSpeed: number;
   maxSpeed: number;
   laneSmoothing: number;
@@ -77,8 +83,11 @@ export interface HUDReferences {
   distanceValue: HTMLElement;
   streakValue: HTMLElement;
   bestValue: HTMLElement;
+  startBestScore?: HTMLElement;
   speedValue: HTMLElement;
   toast: HTMLElement;
+  levelUpToast?: HTMLElement;
+  levelUpSubtitle?: HTMLElement;
   flash: HTMLElement;
   liveStatus: HTMLElement;
   soundToggle: HTMLButtonElement;

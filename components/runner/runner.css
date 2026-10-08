@@ -74,6 +74,38 @@
   z-index: 5;
 }
 
+.runner-back-button-container {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  left: 28px;
+  z-index: 40;
+  pointer-events: auto;
+}
+
+.runner-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  background-color: rgba(15, 35, 46, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(6px);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.runner-back-link:hover {
+  background-color: rgba(22, 53, 70, 0.95);
+  border-color: rgba(141, 240, 200, 0.4);
+  color: #8df0c8;
+  transform: translateY(-1px);
+}
+
 .runner-topbar {
   display: grid;
   grid-template-columns: 155px minmax(0, 580px) 155px;
@@ -81,6 +113,10 @@
   justify-content: space-between;
   gap: 20px;
   padding: max(24px, env(safe-area-inset-top)) 28px 0;
+}
+
+#runner-score-stat {
+  margin-top: 36px;
 }
 
 .runner-stat {
@@ -291,6 +327,37 @@
   color: var(--mint);
 }
 
+#runner-levelup-toast {
+  position: absolute;
+  top: 33%;
+  left: 50%;
+  transform: translate(-50%, 10px) scale(0.92);
+  opacity: 0;
+  text-align: center;
+  transition: opacity 0.15s, transform 0.2s;
+  text-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#runner-levelup-toast.visible {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+#runner-levelup-title {
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #fff4d6;
+}
+
+#runner-levelup-subtitle {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffc857;
+}
+
 .runner-bottom-hud {
   position: absolute;
   left: 24px;
@@ -414,6 +481,52 @@
   background: rgba(141, 240, 200, 0.2);
   color: var(--mint);
   letter-spacing: 0.06em;
+}
+
+.runner-start-highscore-container {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: 28px;
+  pointer-events: auto;
+  z-index: 25;
+}
+
+.runner-start-highscore-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: rgba(15, 35, 46, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 20px rgba(7, 26, 34, 0.25);
+  backdrop-filter: blur(8px);
+}
+
+.runner-start-highscore-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.runner-trophy-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.runner-start-highscore-value {
+  font-size: 20px;
+  font-weight: 850;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  color: var(--mint);
 }
 
 .runner-start-action-container {
@@ -775,10 +888,66 @@
 }
 
 @media (max-width: 700px) {
+  .runner-back-button-container {
+    top: max(10px, env(safe-area-inset-top));
+    left: 12px;
+  }
+  .runner-back-link {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+  .runner-start-highscore-container {
+    top: max(10px, env(safe-area-inset-top));
+    right: 12px;
+  }
+  .runner-start-highscore-badge {
+    padding: 6px 12px;
+    border-radius: 12px;
+    gap: 1px;
+  }
+  .runner-start-highscore-label {
+    font-size: 8.5px;
+    gap: 3px;
+  }
+  .runner-start-highscore-value {
+    font-size: 15px;
+  }
+  .runner-start-hud {
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .runner-start-header {
+    margin-top: 48px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    pointer-events: auto;
+  }
+  .runner-brand-pill {
+    padding: 6px 14px;
+    gap: 8px;
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+    white-space: nowrap;
+  }
+  .runner-start-title {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+  .runner-start-count-badge {
+    font-size: 9.5px;
+    padding: 2px 7px;
+  }
   .runner-topbar {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     padding: max(12px, env(safe-area-inset-top)) 12px 0;
+  }
+  #runner-score-stat,
+  #runner-streak-stat {
+    margin-top: 32px;
   }
   .runner-stat {
     padding: 9px 12px;
@@ -862,7 +1031,8 @@
   .runner-menu-description {
     font-size: 16px;
   }
-  #runner-toast {
+  #runner-toast,
+  #runner-levelup-toast {
     top: 35%;
   }
   .runner-start-hint-desktop {
@@ -882,6 +1052,42 @@
 }
 
 @media (max-height: 580px) {
+  .runner-back-button-container {
+    top: max(8px, env(safe-area-inset-top));
+    left: 16px;
+  }
+  .runner-back-link {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+  .runner-start-highscore-container {
+    top: max(8px, env(safe-area-inset-top));
+    right: 16px;
+  }
+  .runner-start-highscore-badge {
+    padding: 4px 10px;
+    gap: 1px;
+  }
+  .runner-start-highscore-label {
+    font-size: 8px;
+    gap: 3px;
+  }
+  .runner-start-highscore-value {
+    font-size: 14px;
+  }
+  .runner-start-header {
+    margin-top: 4px;
+  }
+  .runner-brand-pill {
+    padding: 4px 12px;
+    gap: 6px;
+  }
+  .runner-start-title {
+    font-size: 11px;
+  }
+  .runner-start-count-badge {
+    font-size: 9px;
+  }
   .runner-menu-card {
     padding: 22px 28px;
   }
@@ -904,6 +1110,9 @@
   }
   .runner-topbar {
     padding-top: 10px;
+  }
+  #runner-score-stat {
+    margin-top: 30px;
   }
   #runner-question-panel {
     padding: 10px 16px;

@@ -5,7 +5,7 @@ export const RunnerHUD: React.FC = () => {
   return (
     <div id="runner-hud" className="runner-hud" hidden>
       <div className="runner-topbar">
-        <section className="runner-stat">
+        <section id="runner-score-stat" className="runner-stat">
           <div className="runner-stat-label">Score</div>
           <div id="runner-score-value" className="runner-stat-value">
             0000
@@ -50,6 +50,11 @@ export const RunnerHUD: React.FC = () => {
       <div id="runner-toast">
         <div id="runner-toast-title">✓ CORRECT!</div>
         <div id="runner-toast-score">+100</div>
+      </div>
+
+      <div id="runner-levelup-toast" aria-hidden="true">
+        <div id="runner-levelup-title">⚡ SPEED UP!</div>
+        <div id="runner-levelup-subtitle">−0.5s</div>
       </div>
 
       <RunnerControls />

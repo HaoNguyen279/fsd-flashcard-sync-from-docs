@@ -55,6 +55,10 @@ export class GameEngine {
   private longestStreak = 0;
   private bestScore = 0;
   private speed = 20;
+  /** Reaction time for the current gate; shrinks every `streakPerLevel` streak */
+  private currentReactionTime = 5;
+  private pendingLevelUp = false;
+  private levelUpTimer = 0;
   private gateNumber = 0;
   private question: RunnerQuestion | null = null;
   private elapsed = 0;
@@ -124,6 +128,9 @@ export class GameEngine {
     }
     if (this.hud.bestValue) {
       this.hud.bestValue.textContent = String(this.bestScore);
+    }
+    if (this.hud.startBestScore) {
+      this.hud.startBestScore.textContent = this.bestScore.toLocaleString();
     }
 
     // WebGLRenderer setup
@@ -408,9 +415,20 @@ export class GameEngine {
     this.lastTickSecond = -1;
     this.setState("PLAYING");
 
-    this.speed = Math.min(this.config.maxSpeed, this.config.baseSpeed + this.streak * 0.65);
-    const obstacleStart = this.config.carZ - this.speed * this.config.reactionTime;
+    // Difficulty progression: shrink reaction time every N streak (floor at minReactionTime).
+    // World speed scales inversely with reaction time so the gate spawns at the same
+    // visual distance but rushes toward the car faster.
+    this.currentReactionTime = this.computeReactionTime(this.streak);
+    const speedMultiplier = this.config.reactionTime / this.currentReactionTime;
+    this.speed =
+      Math.min(this.config.maxSpeed, this.config.baseSpeed + this.streak * 0.65) * speedMultiplier;
+    const obstacleStart = this.config.carZ - this.speed * this.currentReactionTime;
     this.obstacle.resetQuestion(obstacleStart);
+
+    if (this.pendingLevelUp) {
+      this.pendingLevelUp = false;
+      this.showLevelUpToast();
+    }
 
     this.hud.laneLabelsContainer.hidden = false;
     this.hud.questionPanel.classList.remove("urgent");
@@ -424,12 +442,40 @@ export class GameEngine {
       }
     });
 
-    this.hud.progressBar.setAttribute("aria-valuemax", String(this.config.reactionTime));
+    this.hud.progressBar.setAttribute("aria-valuemax", String(this.currentReactionTime));
     this.updateSelectedLane();
     this.updateTimer();
     this.hud.liveStatus.textContent = `${q.meaning}. ${q.options
       .map((word, index) => `Lane ${index + 1}:${word}`)
-      .join(". ")}. Five seconds.`;
+      .join(". ")}. ${this.currentReactionTime} seconds.`;
+  }
+
+  private computeReactionTime(streak: number): number {
+    const level = Math.floor(streak / this.config.streakPerLevel);
+    return Math.max(
+      this.config.minReactionTime,
+      this.config.reactionTime - level * this.config.reactionTimeStep
+    );
+  }
+
+  private showLevelUpToast(): void {
+    if (this.hud.levelUpSubtitle) {
+      this.hud.levelUpSubtitle.textContent = `−${this.config.reactionTimeStep}s · ${this.currentReactionTime.toFixed(1)}s per gate`;
+    }
+    if (this.hud.levelUpToast) {
+      this.hud.levelUpToast.classList.add("visible");
+    }
+    this.levelUpTimer = 1.6;
+    this.audioManager.playTone(520, 0.1, "square", 0.03);
+    this.audioManager.playTone(780, 0.14, "square", 0.03, 0.08);
+  }
+
+  private hideLevelUpToast(): void {
+    this.levelUpTimer = 0;
+    this.pendingLevelUp = false;
+    if (this.hud.levelUpToast) {
+      this.hud.levelUpToast.classList.remove("visible");
+    }
   }
 
   private resolveCollision(): void {
@@ -458,6 +504,11 @@ export class GameEngine {
     this.streak++;
     this.longestStreak = Math.max(this.longestStreak, this.streak);
     this.bounce = 0.8;
+
+    // Shown when the next gate starts (after the CORRECT popup fades)
+    if (this.computeReactionTime(this.streak) < this.currentReactionTime) {
+      this.pendingLevelUp = true;
+    }
 
     this.obstacle.openGate(this.question.correctIndex);
     this.hud.laneLabelsContainer.hidden = true;
@@ -488,6 +539,7 @@ export class GameEngine {
 
     this.hud.laneLabelsContainer.hidden = true;
     this.hud.toast.classList.remove("visible");
+    this.hideLevelUpToast();
     this.hud.questionPanel.classList.remove("urgent");
     this.hud.meaning.textContent = "Collision. End of the road.";
     this.hud.timerValue.textContent = "0.0s";
@@ -513,6 +565,9 @@ export class GameEngine {
 
     if (this.hud.bestValue) {
       this.hud.bestValue.textContent = String(this.bestScore);
+    }
+    if (this.hud.startBestScore) {
+      this.hud.startBestScore.textContent = this.bestScore.toLocaleString();
     }
     this.hud.liveStatus.textContent = `Crash. ${reason} Correct answer: ${this.question.word}. Score: ${this.score}.`;
 
@@ -550,8 +605,8 @@ export class GameEngine {
   }
 
   private updateTimer(): void {
-    const remaining = Math.max(0, this.config.reactionTime - this.elapsed);
-    this.hud.timerFill.style.transform = `scaleX(${remaining / this.config.reactionTime})`;
+    const remaining = Math.max(0, this.currentReactionTime - this.elapsed);
+    this.hud.timerFill.style.transform = `scaleX(${remaining / this.currentReactionTime})`;
     this.hud.timerValue.textContent = `${remaining.toFixed(1)}s`;
     this.hud.progressBar.setAttribute("aria-valuenow", remaining.toFixed(1));
     this.hud.questionPanel.classList.toggle("urgent", remaining < 1.5);
@@ -573,6 +628,8 @@ export class GameEngine {
     this.gateNumber = 0;
     this.currentLane = 1;
     this.speed = this.config.baseSpeed;
+    this.currentReactionTime = this.config.reactionTime;
+    this.hideLevelUpToast();
     this.bounce = 0;
     this.shake = 0;
     this.flash = 0;
@@ -621,8 +678,12 @@ export class GameEngine {
     this.hud.hud.hidden = true;
     this.hud.laneLabelsContainer.hidden = true;
     this.hud.toast.classList.remove("visible");
+    this.hideLevelUpToast();
     this.hud.flash.style.opacity = "0";
     this.hud.startScreen.hidden = false;
+    if (this.hud.startBestScore) {
+      this.hud.startBestScore.textContent = this.bestScore.toLocaleString();
+    }
 
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -670,12 +731,19 @@ export class GameEngine {
 
     const running = this.state === "PLAYING" || this.state === "SUCCESS";
 
+    if (this.levelUpTimer > 0 && running) {
+      this.levelUpTimer -= dt;
+      if (this.levelUpTimer <= 0) {
+        this.hideLevelUpToast();
+      }
+    }
+
     if (this.state === "PLAYING") {
       const previousElapsed = this.elapsed;
-      this.elapsed = Math.min(this.config.reactionTime, this.elapsed + realDelta);
+      this.elapsed = Math.min(this.currentReactionTime, this.elapsed + realDelta);
 
       this.obstacle.group.position.z =
-        this.config.carZ - this.speed * (this.config.reactionTime - this.elapsed);
+        this.config.carZ - this.speed * (this.currentReactionTime - this.elapsed);
       this.distance += this.speed * (this.elapsed - previousElapsed);
 
       this.road.move(this.speed * dt, this.config.recycleLength);
@@ -695,7 +763,7 @@ export class GameEngine {
       this.updateTimer();
       this.updateStats();
 
-      if (this.elapsed >= this.config.reactionTime) {
+      if (this.elapsed >= this.currentReactionTime) {
         this.resolveCollision();
       }
     } else if (this.state === "SUCCESS") {

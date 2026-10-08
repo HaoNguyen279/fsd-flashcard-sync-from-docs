@@ -108,8 +108,11 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ initialItems }) => {
       distanceValue: document.getElementById("runner-distance-value")!,
       streakValue: document.getElementById("runner-streak-value")!,
       bestValue: document.getElementById("runner-best-value")!,
+      startBestScore: (document.getElementById("runner-start-best-score") as HTMLElement) || undefined,
       speedValue: document.getElementById("runner-speed-value")!,
       toast: document.getElementById("runner-toast")!,
+      levelUpToast: document.getElementById("runner-levelup-toast") || undefined,
+      levelUpSubtitle: document.getElementById("runner-levelup-subtitle") || undefined,
       flash: document.getElementById("runner-flash")!,
       liveStatus: document.getElementById("runner-live-status")!,
       soundToggle: document.getElementById("runner-sound-toggle") as HTMLButtonElement,
@@ -141,25 +144,11 @@ export const RunnerGame: React.FC<RunnerGameProps> = ({ initialItems }) => {
   return (
     <div ref={containerRef} className="runner-root">
       {/* Return to Flashcards navigation */}
-      <div style={{ position: "fixed", top: "16px", left: "16px", zIndex: 40, pointerEvents: "auto" }}>
+      <div className="runner-back-button-container">
         <Link
           href="/"
           prefetch={false}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "8px 14px",
-            borderRadius: "9999px",
-            backgroundColor: "rgba(15, 35, 46, 0.85)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-            color: "#ffffff",
-            fontSize: "12px",
-            fontWeight: 700,
-            textDecoration: "none",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            backdropFilter: "blur(6px)",
-          }}
+          className="runner-back-link"
         >
           ← Back to Flashcards
         </Link>
